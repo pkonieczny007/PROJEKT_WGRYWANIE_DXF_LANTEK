@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block tresc %}
+
+<h2>Zlecenie {{ st.numer or "(bez numeru)" }}</h2>
+<p class="mini">
+  wykaz: <code>{{ st.wykaz }}</code><br>
+  DXF: {% for f in st.foldery_dxf %}<code>{{ f }}</code>{% if not loop.last %} &middot; {% endif %}{% endfor %}<br>
+  zamowienie: <code>{{ st.ordref or "brak" }}</code> &middot; folder wynikow: <code>{{ folder }}</code>
+</p>
+
+{% set k = st.kontrola %}
+{% set x = st.xml %}
+{% set wg = st.wgranie %}
+{% set po = st.po %}
+
+<div class="krok">
+  <h3>Krok 1 &middot; Kontrola przed wgraniem</h3>
+  {% if k %}
+    <div class="werdykt w-{{ k.werdykt }}">Werdykt: {{ k.werdykt }}</div>
+    <div class="karty">
+      <div class="karta"><b>{{ k.blacha }}</b><span>pozycji blachy</span></div>
+      <div class="karta"><b>{{ k.licznik.OK }}</b><span>bez zastrzezen</span></div>
+      <div class="karta"><b>{{ k.licznik.UWAGA }}</b><span>z uwaga</span></div>
+      <div class="karta"><b>{{ k.licznik.STOP }}</b><span>zablokowanych</span></div>
+      <div class="karta"><b>{{ st.do_wgrania|length }}</b><span>do wgrania</span></div>
+      <div class="karta"><b>{{ k.bez_giecia_a_powinno }}</b><span>bez gietarki mimo G</span></div>
+    </div>
+    <p>kolumna referencji: <code>{{ k.kolumna_nazwy }}</code> &middot;
+       ilosc: <code>{{ k.kolumna_ilosci }}</code> &middot;
+       baza: {{ "tak" if k.baza_dostepna else "NIE" }} &middot;
+       zamowienie {{ "istnieje, linie od " ~ k.pierwsza_linia if k.zamowienie_istnieje else "zostanie zalozone" }}</p>
+    {% if k.kody %}
+      <table>
+        <tr><th>co wyszlo</th><th>ile pozycji</th></tr>
+        {% for kod, ile in k.kody.items() %}<tr><td>{{ kod }}</td><td class="n">{{ ile }}</td></tr>{% endfor %}
+      </table>
+    {% endif %}
+
+    {% if k.materialy %}
+      <h3 style="font-size:15px;margin:18px 0 4px">Materialy &mdash; co na co idzie</h3>
+      <p class="mini">gatunek czytany z {{ "referencji (2. czlon)" if k.zrodlo_wymiarow == "referencja" else "kolumny wykazu" }};
+         MatRef musi istniec w kartotece LANTEKA</p>
+      <table>
+        <tr><th>gatunek</th><th>MatRef w LANTEKU</th><th>pozycji</th><th>jest w kartotece</th></tr>
+        {% for m in k.materialy %}
+          <tr class="{{ 'STOP' if m.w_kartotece is false else ('OK' if m.w_kartotece else '') }}">
+            <td>{{ m.gatunek }}</td><td>{{ m.material }}</td>
+            <td class="n">{{ m.pozycji }}</td>
+            <td>{{ "tak" if m.w_kartotece else ("NIE MA" if m.w_kartotece is false else "?") }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    {% if st.podglad %}
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;font-weight:600">
+          Podglad pozycji ({{ st.podglad|length }} z {{ k.wszystkich }}) &mdash; co pojdzie do LANTEKA
+        </summary>
+        <p class="mini">Pelna lista jest w raporcie HTML ponizej.</p>
+        <table>
+          <tr><th></th><th>w.</th><th>referencja</th><th>gatunek &rarr; MatRef</th>
+              <th>grubosc</th><th>ilosc</th><th>kod</th><th>ruta</th>
+              <th>marszruta</th><th>DXF</th><th>uwagi</th></tr>
+          {% for p in st.podglad %}
+            <tr class="{{ p.poziom }}">
+              <td>{{ p.poziom }}</td><td class="n">{{ p.wiersz }}</td>
+              <td>{{ p.ref }}</td>
+              <td>{{ p.gatunek or "-" }} &rarr; {{ p.material or "?" }}</td>
+              <td class="n">{{ p.grubosc }}</td><td class="n">{{ p.ilosc }}</td>
+              <td>{{ p.kod or "-" }}</td><td>{{ p.ruta or "-" }}</td>
+              <td>{{ p.marszruta or "-" }}</td>
+              <td>{{ p.stan_dxf or "-" }}</td>
+              <td>{{ p.uwagi|join("; ") }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </details>
+    {% endif %}
+  {% else %}
+    <p>Kontrola sprawdza wykaz, pliki DXF i baze LANTEKA. Nic nie zapisuje do bazy.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    <button class="glowny" name="akcja" value="kontrola">
+      {{ "Powtorz kontrole" if k else "Uruchom kontrole" }}</button>
+  </form>
+</div>
+
+<div class="krok">
+  <h3>Krok 2 &middot; XML i kopia plikow DXF</h3>
+  {% if x %}
+    <p>XML: <code>{{ x.xml }}</code></p>
+    <p>elementow {{ x.podsumowanie.elementow }} &middot;
+       z geometria {{ x.podsumowanie.z_geometria }} &middot;
+       linii zamowienia {{ x.podsumowanie.linii_zamowienia }} &middot;
+       {{ "zaklada zamowienie" if x.podsumowanie.zaklada_zamowienie else "dopina do istniejacego" }}</p>
+    <p>skopiowano {{ x.skopiowanych_dxf }} plikow DXF do <code>{{ x.katalog_dxf }}</code></p>
+    {% if x.xml_marszruta %}
+      <p>poprawka marszruty dla {{ x.marszrut_do_poprawy }} pozycji:
+         <code>{{ x.xml_marszruta }}</code> (wgrywana osobno, po imporcie glownym)</p>
+    {% endif %}
+  {% else %}
+    <p>Kopiuje pliki DXF tam, gdzie widzi je LANTEK, i sklada plik XML.
+       W polu UData8 ladauje referencja - to ona wlacza regule marszruty.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    <button name="akcja" value="xml" {% if not st.do_wgrania %}disabled{% endif %}>
+      {{ "Zbuduj XML ponownie" if x else "Zbuduj XML" }}</button>
+  </form>
+</div>
+
+<div class="krok">
+  <h3>Krok 3 &middot; Wgranie do LANTEKA (PowerSync)</h3>
+  {% if wg %}
+    <div class="werdykt w-{{ 'OK' if wg.udany else 'STOP' }}">{{ wg.podsumowanie }}</div>
+    {% if wg.log %}<p>log importera: <code>{{ wg.log }}</code></p>{% endif %}
+  {% else %}
+    <p><b>To jedyny krok, ktory zapisuje do bazy LANTEKA.</b>
+       Tuz przed wyslaniem sprawdzamy jeszcze raz, czy zadna pozycja nie jest juz
+       linia tego zamowienia - powtorka zawyzylaby ilosci.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    <label class="ch"><input type="checkbox" name="potwierdzam"> potwierdzam wgranie</label>
+    <button class="groza" name="akcja" value="wgraj" {% if not x %}disabled{% endif %}>
+      Wgraj do LANTEKA</button>
+  </form>
+</div>
+
+<div class="krok">
+  <h3>Krok 4 &middot; Kontrola po wgraniu</h3>
+  {% if po %}
+    <div class="werdykt w-{{ po.werdykt }}">Werdykt: {{ po.werdykt }}</div>
+    <p>sprawdzonych {{ po.sprawdzonych }} &middot; z gietarka w marszrucie {{ po.z_gieciem }}</p>
+  {% else %}
+    <p>Odczyt z bazy: czy elementy sa, z jakim materialem i gruboscia, jaka dostaly
+       marszrute i czy ilosci w zamowieniu sie zgadzaja.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    <button name="akcja" value="po" {% if not wg %}disabled{% endif %}>Sprawdz w bazie</button>
+  </form>
+</div>
+
+{% if pliki %}
+  <h2>Pliki przebiegu</h2>
+  <table>
+    <tr><th>plik</th><th>pobierz</th></tr>
+    {% for p in pliki %}
+      <tr><td>{{ p }}</td>
+          <td><a href="{{ url_for('dxf.pobierz', plik=p) }}">pobierz</a></td></tr>
+    {% endfor %}
+  </table>
+{% endif %}
+
+<div class="rzad">
+  <a href="{{ url_for('dxf.start') }}"><button type="button">Wroc do ustawien</button></a>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+# Dostep do bazy LANTEKA - NIGDY do repozytorium
+.env
+*.env
+!.env.example
+
+# Wyniki przebiegow i dziennik wgran (dane robocze, czesto duze)
+wgrywanie_dxf/data/
+wgrywanie_dxf/testy/zestaw_probny/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Excel / Windows
+~$*
+Thumbs.db
+desktop.ini
+
+# Tymczasowe
+*.log
+*.tmp
+tmp/
+
+# plik generowany przez XmlImporter LANTEKA
+servpack.dts

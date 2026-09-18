@@ -1,0 +1,34 @@
+Musimy utworzyć narzedzie do wgrywania dxf do lanteka.
+
+wskazuejmy wykaz. 
+
+flask.
+Narzędzia wgrywanie przez  powersync.
+
+
+Myślałem o flasku, gdzie wskazujemy folder:
+
+z wykazem
+z dxf do wgrania
+
+
+
+
+
+kontekst:
+
+
+\\QNAP-ENERGO\Technologia\Python\PROJEKT_ETAPY\projekt_etapy\projekt_etapy - tutaj jest mój projekt wgrywania z excela elementow zakupowych.
+Pythony sa na tej samej zasadzie 
+
+"\\QNAP-ENERGO\Projekty_INTEGRA\PLANOWANIE\AKTUALNE_PROJEKTY\PROJEKT_WGRYWANIE_DXF_LANTEK\kontekst\importer-excela-od-lantek\Lantek XLS2XML - Aggregate-IMPORTE+VBA.xlsm" - tu jest importer od Lanteka gdzie można wgrywać przez excel. ale on nie jest dorobiony. bo technologii nie można wgrywać, ale ogolnie funkcjonalność chcemy Sheet Parts u nas w aplikacji. ale tutaj sa dane jakies od lanteka
+poniżej przykład mojego który wgrałem:
+
+"\\QNAP-ENERGO\Projekty_INTEGRA\PLANOWANIE\AKTUALNE_PROJEKTY\PROJEKT_WGRYWANIE_DXF_LANTEK\kontekst\importer-excela-od-lantek\test12_Lantek XLS2XML - Aggregate_v7 — kopia — kopia.xlsm" - tutaj wgralem w taki sposob jak robimy. ale elementy wgrywają sie z bledem. bo marszruta wchodzi tylko Laser. a nie laser+gięcie.
+tu jest xml wygenerowane: "\\QNAP-ENERGO\Projekty_INTEGRA\PLANOWANIE\AKTUALNE_PROJEKTY\PROJEKT_WGRYWANIE_DXF_LANTEK\kontekst\importer-excela-od-lantek\SheetParts_2026-09-18_110142.xml"
+
+musi być kontrola przed wgraniem, dodatkowo musi być wgrywana prawidłowo marszruta, tak jak robimy to przez Lantek expert. 
+
+dodatkowe opcje:
+sprawdzanie ilości z wykazem 
+sprawdzanie daszków

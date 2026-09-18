@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block tresc %}
+
+<form method="post">
+  <fieldset>
+    <legend>1. Zlecenie</legend>
+    <label>Numer zlecenia (NN_XXXX)</label>
+    <div class="rzad">
+      <input type="text" name="numer" value="{{ numer }}" placeholder="82_1129" style="max-width:220px">
+      <button name="akcja" value="propozycje">Zaproponuj wykaz i foldery</button>
+      <span class="mini">Skan sieci trwa kilkanascie sekund. Sciezki mozesz tez wpisac recznie.</span>
+    </div>
+  </fieldset>
+</form>
+
+<form method="post">
+  <input type="hidden" name="numer" value="{{ numer }}">
+
+  <fieldset>
+    <legend>2. Wykaz roboczy</legend>
+    {% if prop and prop.wykazy %}
+      <label>Znalezione w folderze {{ prop.folder }}</label>
+      <select name="wykaz" size="{{ [prop.wykazy|length, 5]|min }}">
+        {% for w in prop.wykazy %}
+          <option value="{{ w.sciezka }}" {% if loop.first %}selected{% endif %}>
+            {% if w.roboczy %}[ROBOCZY] {% endif %}{{ w.nazwa }}
+          </option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <label>Sciezka do pliku wykazu</label>
+      <input type="text" name="wykaz" placeholder="//QNAP-ENERGO/Technologia/2026/82_1129/ROBOCZY_....xlsx">
+    {% endif %}
+    <div class="rzad">
+      <div style="flex:1;min-width:220px">
+        <label>Kolumna z referencja (puste = wybor automatyczny)</label>
+        <input type="text" name="kolumna_nazwy" placeholder="Nazwa / NAZWA_teraz / NAZWA_docelowa">
+      </div>
+      <div style="flex:1;min-width:220px">
+        <label>Kolumna z iloscia (puste = Anz.)</label>
+        <input type="text" name="kolumna_ilosci" placeholder="Anz. / ILOSC DO WYKONANIA">
+      </div>
+    </div>
+    <label>Grubosc i gatunek bierzemy z</label>
+    <label class="ch"><input type="radio" name="zrodlo_wymiarow" value="referencja" checked>
+      <b>referencji</b> - 1. czlon to grubosc, 2. czlon to gatunek
+      (np. <code>12_S235_...</code> &rarr; 12 mm, S235)</label>
+    <label class="ch"><input type="radio" name="zrodlo_wymiarow" value="kolumny">
+      kolumn wykazu <code>grubosc_poprawiona</code> / <code>gatunek_poprawiony</code></label>
+    <p class="mini">Referencja niesie oba czlony zawsze i to ona idzie do LANTEKA.
+       Kolumny kontrolne sa tylko w wykazach zrobionych przez /wykaz-roboczy.
+       Niezaleznie od wyboru kontrola porownuje oba zrodla i zglasza rozjazd.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Pliki DXF</legend>
+    {% if prop and prop.foldery_dxf %}
+      <label>Zaznacz folder albo kilka. Przy tej samej nazwie pliku wygrywa folder wyzej.</label>
+      <div class="lista-folderow">
+        {% for d in prop.foldery_dxf %}
+          <label class="ch" style="display:block;color:inherit">
+            <input type="checkbox" name="folder_dxf" value="{{ d.sciezka }}"
+                   {% if loop.first %}checked{% endif %}>
+            <b>{{ d.plikow }}</b> plikow &middot; {{ d.sciezka }}
+          </label>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <label>Albo wskaz folder recznie (ma pierwszenstwo)</label>
+    <input type="text" name="folder_reczny" placeholder="//QNAP-ENERGO/Technologia/2026/82_1129/DXF82/...">
+    <div class="rzad">
+      <label class="ch"><input type="checkbox" name="podfoldery"> szukaj takze w podfolderach</label>
+      <label class="ch"><input type="checkbox" name="badaj_dxf" checked> otwieraj pliki DXF (wolniejsze, ale wykrywa uszkodzone)</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. Zamowienie sprzedazy i marszruta</legend>
+    <div class="rzad">
+      <div style="flex:1;min-width:240px">
+        <label>Numer zamowienia (OrdRef, do 40 znakow; puste = nie dopinamy)</label>
+        <input type="text" name="ordref" value="{{ prop.ordref if prop else '' }}">
+      </div>
+      <div style="flex:1;min-width:240px">
+        <label>Gdy referencja powtarza sie w wykazie</label>
+        <label class="ch"><input type="radio" name="tryb_ilosci" value="pierwszy" checked>
+          ilosc z pierwszego wiersza (zgodna z czlonem "Nst")</label>
+        <label class="ch"><input type="radio" name="tryb_ilosci" value="suma">
+          suma ilosci ze wszystkich wierszy</label>
+      </div>
+    </div>
+    <p class="mini" style="margin-top:10px">
+      Marszrute nadaje LANTEK sam, regula ruty czytajaca pole UData8 - wpisujemy tam
+      referencje, dokladnie tak jak robi to Lantek Expert. Ponizsze opcje dotycza
+      tylko pozycji, ktorym regula LANTEKA nie nada gietarki.
+    </p>
+    <div class="rzad">
+      <label class="ch"><input type="checkbox" name="wymus_marszrute">
+        przygotuj poprawke marszruty dla pozycji bez gietarki</label>
+      <label class="ch"><input type="checkbox" name="dokladaj_spawanie"> dokladaj spawanie (S)</label>
+      <label class="ch"><input type="checkbox" name="dokladaj_ocynk"> dokladaj ocynk (O)</label>
+      <label class="ch" title="wkrotce"><input type="checkbox" disabled> sprawdzanie daszkow (wkrotce)</label>
+    </div>
+  </fieldset>
+
+  <div class="rzad">
+    <button class="glowny" name="akcja" value="kontrola">Uruchom kontrole</button>
+    <button name="akcja" value="nowy">Zacznij od nowa</button>
+  </div>
+</form>
+
+{% if prop and prop.uwagi %}
+  <p class="mini">{{ prop.uwagi|join(" &middot; ")|safe }}</p>
+{% endif %}
+{% endblock %}

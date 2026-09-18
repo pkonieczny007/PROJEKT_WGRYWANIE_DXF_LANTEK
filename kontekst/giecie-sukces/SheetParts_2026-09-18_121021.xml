@@ -1,0 +1,29 @@
+<DATAEX>
+<COMMAND Name="Import" TblRef="PRODUCTS">
+    <FIELD FldRef="PrdRef" FldValue="10_S235_test-giecie_GS_" FldType="20"/>
+    <FIELD FldRef="PrdName" FldValue="" FldType="20"/>
+    <FIELD FldRef="MatRef" FldValue="S235JR" FldType="20"/>
+    <FIELD FldRef="Height" FldValue="10" FldType="100"/>
+    <FIELD FldRef="Priority" FldValue="0" FldType="100"/>
+    <FIELD FldRef="UData1" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData2" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData3" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData4" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData5" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData6" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData7" FldValue="" FldType="20"/>
+    <FIELD FldRef="UData8" FldValue="10_S235_test-giecie_GS_" FldType="20"/>
+</COMMAND>
+<COMMAND Name="Import" TblRef="PRODUCT OPERATIONS">
+    <FIELD FldRef="PrdRef" FldValue="10_S235_test-giecie_GS_" FldType="20"/>
+    <FIELD FldRef="OOrder" FldValue="1" FldType="100"/>
+    <FIELD FldRef="PrevOpr" FldValue="0" FldType="100"/>
+    <FIELD FldRef="WrkRef" FldValue="UNI-KAT Fobia" FldType="20"/>
+    <FIELD FldRef="OprRef" FldValue="2D Cut" FldType="20"/>
+</COMMAND>
+<COMMAND Name="Import" TblRef="IMPORTGEO">
+    <FIELD FldRef="Product" FldValue="10_S235_test-giecie_GS_" FldType="20"/>
+    <FIELD FldRef="GeometryType" FldValue="DXF" FldType="20"/>
+    <FIELD FldRef="GeometryPath" FldValue="C:\Lantek\importxml\DXF\1,5_DC01_SL40551305_p2_1st_G_2026_.DXF" FldType="20"/>
+</COMMAND>
+</DATAEX>
