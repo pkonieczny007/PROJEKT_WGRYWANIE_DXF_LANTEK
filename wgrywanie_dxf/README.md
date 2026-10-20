@@ -167,6 +167,11 @@ a litera S jest w każdej referencji z `S235`/`S355`/`SL…`. Takie blachy (kody
   STOP `ELEMENT_INNY_W_BAZIE` — wtedy zmień też referencję na wolną.
 - Formularz wysyła pełny stan zmian; zapis = ponowna kontrola. Stan w `stan.json`
   (`maszyny_grup`, `poprawki`).
+- **Checkbox po lewej** (jak w LANTEKU przy imporcie): domyślnie wszystkie zaznaczone;
+  odznaczona pozycja nie idzie do XML ani do LANTEKA, nie liczy się do werdyktu, materiałów
+  ani liczników (`WYLACZONA_RECZNIE`, bilans „wyłączonych”). „Widoczne: włącz/wyłącz” i
+  checkbox w nagłówku działają na przefiltrowane wiersze; filtr „wgrywane”; w Excelu
+  kolumna „wgrywana”.
 - Filtr „grubość_gatunek” (np. `20_S235`) obok osobnych filtrów grubości i gatunku;
   przy każdej wartości liczba pozycji i sztuk.
 - **Eksport Excel** (`services/eksport.py`): zakładki `Pozycje` i `Materialy`, zmiany ręczne

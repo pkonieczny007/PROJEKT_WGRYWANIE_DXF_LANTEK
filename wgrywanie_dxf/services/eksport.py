@@ -19,6 +19,7 @@ POGRUB = Font(bold=True)
 
 # (naglowek, klucz w podgladzie albo funkcja, pole 'reczne' do podswietlenia)
 KOLUMNY = [
+    ("wgrywana", lambda p: "NIE (wylaczona)" if p.get("wylaczona") else "tak", None),
     ("poziom", "poziom", None),
     ("wiersz wykazu", "wiersz", None),
     ("strona L/P", "strona", None),
@@ -92,10 +93,13 @@ def zbuduj(st) -> Workbook:
         r = ws.max_row
         kolor = KOLOR_POZIOMU.get(p.get("poziom"))
         if kolor:
-            ws.cell(r, 1).fill = PatternFill("solid", fgColor=kolor)
+            ws.cell(r, 2).fill = PatternFill("solid", fgColor=kolor)
         if p.get("magazyn"):                 # 'MAGAZYN 2szt' - caly wiersz na bursztynowo
             for cell in ws[r]:
                 cell.fill = MAGAZYN
+        if p.get("wylaczona"):               # odznaczona - szary tekst w calym wierszu
+            for cell in ws[r]:
+                cell.font = Font(color="9A9A9A", italic=True)
         for i, (_n, _kl, pole) in enumerate(KOLUMNY, start=1):
             if pole and pole in zm:
                 ws.cell(r, i).fill = RECZNA

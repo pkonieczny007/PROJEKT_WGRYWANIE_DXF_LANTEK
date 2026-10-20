@@ -60,6 +60,7 @@ class Wiersz:
     popraw_marszrute: bool = False    # maszyna inna niz z reguly -> drugi import
     ruta_reczna: str = ""             # ruta wybrana recznie z listy INTEGRY
     operacje_reczne: list = field(default_factory=list)   # jej operacje do poprawki
+    wylaczona: bool = False           # odznaczona recznie w podgladzie - nie wgrywamy
     uwagi: list = field(default_factory=list)
 
     @property
@@ -88,19 +89,23 @@ class Wynik:
     matrefy: list = field(default_factory=list)     # materialy z kartoteki INTEGRY
     ruty: list = field(default_factory=list)        # ruty blach z INTEGRY [{ref, opis}]
 
+    # pozycje wylaczone recznie (checkbox w podgladzie) nie ida do LANTEKA,
+    # wiec nie licza sie tez do werdyktu ani licznikow OK/UWAGA/STOP
     @property
     def werdykt(self):
-        poziomy = [w.poziom for w in self.wiersze] + [u.poziom for u in self.ogolne]
+        poziomy = ([w.poziom for w in self.wiersze if not w.wylaczona]
+                   + [u.poziom for u in self.ogolne])
         return max(poziomy, key=lambda p: WAGA[p]) if poziomy else OK
 
     @property
     def do_wgrania(self):
-        return [w for w in self.wiersze if w.poziom != STOP]
+        return [w for w in self.wiersze if w.poziom != STOP and not w.wylaczona]
 
     def licznik(self):
         c = {OK: 0, UWAGA: 0, STOP: 0}
         for w in self.wiersze:
-            c[w.poziom] += 1
+            if not w.wylaczona:
+                c[w.poziom] += 1
         return c
 
     def kody(self):
@@ -401,6 +406,9 @@ def przed(wykaz, folder_dxf, ordref, cn=None, podfoldery=False, badaj_dxf=True,
     for p, wiersze_zrodlowe, ilosc_suma, rozbieznosci in scalone:
         w = Wiersz(poz=p, wiersze_zrodlowe=wiersze_zrodlowe, ilosc_suma=ilosc_suma)
         wynik.wiersze.append(w)
+        if (poprawki.get(p.ref_dxf) or {}).get("wylacz"):
+            w.wylaczona = True
+            w.dodaj(OK, "WYLACZONA_RECZNIE", "odznaczona w podgladzie - nie bedzie wgrana")
 
         # 1) referencja
         if not p.ref:
@@ -627,7 +635,10 @@ def przed(wykaz, folder_dxf, ordref, cn=None, podfoldery=False, badaj_dxf=True,
             except Exception:
                 pass
 
-    wynik.materialy = zestawienie_materialow(wynik.wiersze, materialy_bazy, maszyny_grup)
+    # zestawienie 'co na co idzie' - bez pozycji wylaczonych recznie
+    wynik.materialy = zestawienie_materialow([w for w in wynik.wiersze if not w.wylaczona],
+                                             materialy_bazy, maszyny_grup)
+    wynik.bilans["wylaczonych"] = sum(1 for w in wynik.wiersze if w.wylaczona)
     return wynik
 
 

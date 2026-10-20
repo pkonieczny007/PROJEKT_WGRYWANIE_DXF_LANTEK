@@ -48,7 +48,8 @@
          = <b>{{ b.oczekiwanych }}</b> elementow DXF oczekiwanych &middot;
          pozycji po kontroli <b>{{ b.pozycji }}</b>
          {% if b.w_duplikatach %}<span class="zle">(w tym {{ b.w_duplikatach }} wierszy zlaczonych jako duplikaty)</span>{% endif %}
-         {% if b.poprawionych_ref %}&middot; recznie zmienionych referencji {{ b.poprawionych_ref }}{% endif %}</p>
+         {% if b.poprawionych_ref %}&middot; recznie zmienionych referencji {{ b.poprawionych_ref }}{% endif %}
+         {% if b.wylaczonych %}&middot; <span class="zle">wylaczonych recznie (nie wgrywamy): {{ b.wylaczonych }}</span>{% endif %}</p>
     {% endif %}
     <p>kolumna referencji: <code>{{ k.kolumna_nazwy }}</code> &middot;
        ilosc: <code>{{ k.kolumna_ilosci }}</code> &middot;
@@ -122,6 +123,7 @@
           <select data-pole="kod"><option value="">kod: wszystkie</option></select>
           <select data-pole="dxf"><option value="">DXF: wszystkie</option></select>
           <select data-pole="mag"><option value="">magazyn: wszystkie</option></select>
+          <select data-pole="wl"><option value="">wgrywane: wszystkie</option></select>
           <select data-pole="tylko">
             <option value="">pokaz: wszystkie</option>
             <option value="poprawka">z poprawka marszruty</option>
@@ -142,9 +144,13 @@
             {% for kl, mm in maszyny.items() %}<option value="{{ kl }}">{{ mm.nazwa }}</option>{% endfor %}
           </select>
           <button type="button" id="f-ustaw" style="padding:3px 10px;font-size:12.5px">ustaw</button>
+          <span class="mini">&middot; widoczne:</span>
+          <button type="button" id="f-wlacz" style="padding:3px 10px;font-size:12.5px">wlacz</button>
+          <button type="button" id="f-wylacz" style="padding:3px 10px;font-size:12.5px">wylacz</button>
         </div>
         <table id="t-podglad">
-          <tr><th></th><th>w.</th><th>referencja (do LANTEKA)</th><th>gatunek &rarr; MatRef</th>
+          <tr><th title="odznacz = pozycja nie bedzie wgrana"><input type="checkbox" id="wl-wszystkie" checked
+                  title="zaznacz/odznacz wszystkie WIDOCZNE"></th><th></th><th>w.</th><th>referencja (do LANTEKA)</th><th>gatunek &rarr; MatRef</th>
               <th>grubosc</th><th>ilosc</th><th>kod</th><th>maszyna</th><th>LANTEK sam</th>
               <th>DXF</th><th>uwagi</th></tr>
           {% macro liczba(v) %}{{ '%g'|format(v) if v is number else (v or '') }}{% endmacro %}
@@ -153,7 +159,8 @@
             {% set g_wyk = r.grubosc[0] if r.grubosc else p.grubosc %}
             {% set il_wyk = r.ilosc[0] if r.ilosc else p.ilosc %}
             {% set mat_auto = r.material[0] if r.material else p.material %}
-            <tr class="{{ p.poziom }}{{ ' magazyn' if p.magazyn }}" data-poziom="{{ p.poziom }}"
+            <tr class="{{ p.poziom }}{{ ' magazyn' if p.magazyn }}{{ ' wylaczona' if p.wylaczona }}" data-poziom="{{ p.poziom }}"
+                data-wl="{{ 'wylaczona' if p.wylaczona else 'wgrywana' }}"
                 data-grubosc="{{ liczba(p.grubosc) }}"
                 data-gatunek="{{ p.gatunek or '' }}" data-maszyna="{{ p.maszyna or '' }}"
                 data-grgat="{{ liczba(p.grubosc) }}_{{ p.gatunek or '' }}"
@@ -161,6 +168,8 @@
                 data-dxf="{{ p.stan_dxf or '-' }}"
                 data-mag="{{ 'czesciowo z magazynu' if p.magazyn else 'bez magazynu' }}"
                 data-tylko="{{ 'poprawka ' if p.popraw_marszrute }}{{ 'strona ' if p.strona }}{{ 'zmieniona ' if p.ref != p.ref_dxf }}{{ 'wbazie ' if p.w_bazie }}{{ 'magazyn ' if p.magazyn }}{{ 'wyjatek ' if p.maszyna_zrodlo == 'pozycja' }}{{ 'reczna' if (r or p.ruta_reczna or p.maszyna_zrodlo == 'pozycja' or p.ref != p.ref_dxf) }}">
+              <td><input type="checkbox" class="zm-wl" data-ref-dxf="{{ p.ref_dxf }}"
+                         {% if not p.wylaczona %}checked{% endif %} title="odznacz = nie wgrywaj tej pozycji"></td>
               <td>{{ p.poziom }}</td>
               <td class="n">{{ p.wiersz }}{% if p.strona %} <b>{{ p.strona }}</b>{% endif %}</td>
               <td style="min-width:300px">
@@ -245,6 +254,11 @@
           (pozycje[k] = pozycje[k] || {})[POLA[klasaPola(el)]] = el.value.trim();
           zmian++;
         });
+        f.querySelectorAll("input.zm-wl").forEach(function (c) {    // odznaczone = nie wgrywaj
+          if (c.checked) return;
+          (pozycje[c.dataset.refDxf] = pozycje[c.dataset.refDxf] || {}).wylacz = true;
+          zmian++;
+        });
         return {grupy: grupy, pozycje: pozycje, zmian: zmian};
       }
       // listy z INTEGRY wczytywane dopiero przy pierwszym kliknieciu w pole
@@ -327,7 +341,7 @@
         }
         function filtruj() {
           var t = tekst.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-          var widac = 0, sztuk = 0;
+          var widac = 0, sztuk = 0, wl = 0, wlSzt = 0;
           wiersze.forEach(function (w) {
             var ok = selekty.every(function (s) {
               if (!s.value) return true;
@@ -342,13 +356,47 @@
             if (ok) {
               widac++;
               var il = w.querySelector("input.zm-il");
-              sztuk += parseFloat(((il && il.value) || "0").replace(",", ".")) || 0;
+              var szt = parseFloat(((il && il.value) || "0").replace(",", ".")) || 0;
+              sztuk += szt;
+              var c = w.querySelector("input.zm-wl");
+              if (!c || c.checked) { wl++; wlSzt += szt; }
             }
           });
           document.getElementById("f-licznik").innerHTML =
             "pokazano <b>" + widac + "</b> z " + wiersze.length + " pozycji &middot; sztuk razem <b>" +
-            (Math.round(sztuk * 100) / 100) + "</b>";
+            (Math.round(sztuk * 100) / 100) + "</b>" +
+            (wl < widac ? " &middot; z tego wgrywanych <b>" + wl + "</b> poz., <b>" +
+                          (Math.round(wlSzt * 100) / 100) + "</b> szt." : "");
         }
+        // checkbox przy pozycji: odznaczony = nie wgrywamy (jak w LANTEKU przy imporcie)
+        function ustawWl(c, wlaczona) {
+          c.checked = wlaczona;
+          var w = c.closest("tr");
+          w.classList.toggle("wylaczona", !wlaczona);
+          w.dataset.wl = wlaczona ? "wgrywana" : "wylaczona";
+        }
+        tab.addEventListener("change", function (e) {
+          if (!e.target.classList.contains("zm-wl")) return;
+          ustawWl(e.target, e.target.checked);
+          filtruj();
+        });
+        function wlaczWidoczne(wlaczona) {
+          var ile = 0;
+          wiersze.forEach(function (w) {
+            if (w.style.display === "none") return;
+            var c = w.querySelector("input.zm-wl");
+            if (c && c.checked !== wlaczona) { ustawWl(c, wlaczona); ile++; }
+          });
+          filtruj();
+          document.getElementById("zm-licznik").textContent =
+            (wlaczona ? "wlaczono " : "wylaczono ") + ile + " widocznych pozycji; zmian razem: " +
+            zbierz().zmian + " - kliknij 'Zastosuj', zeby weszly";
+        }
+        document.getElementById("f-wlacz").addEventListener("click", function () { wlaczWidoczne(true); });
+        document.getElementById("f-wylacz").addEventListener("click", function () { wlaczWidoczne(false); });
+        document.getElementById("wl-wszystkie").addEventListener("change", function () {
+          wlaczWidoczne(this.checked);
+        });
         f.addEventListener("input", function (e) {
           if (e.target.classList.contains("zm-il")) { clearTimeout(zegar); zegar = setTimeout(filtruj, 300); }
         });

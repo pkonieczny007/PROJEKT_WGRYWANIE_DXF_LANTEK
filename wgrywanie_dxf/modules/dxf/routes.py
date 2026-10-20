@@ -326,6 +326,7 @@ def _krok_kontrola(st, cfg):
             "reczne": w.poz.reczne, "ruta_reczna": w.ruta_reczna,
             "operacje_reczne": w.operacje_reczne,
             "magazyn": w.poz.magazyn,
+            "wylaczona": w.wylaczona,
         }
 
     do_wgrania = [_opis(w) for w in wynik.do_wgrania]
@@ -422,6 +423,8 @@ def _krok_zmiany(st, cfg):
                     wpis[pole] = v
                 else:
                     odrzucone.append("%s: %s '%s' to nie liczba > 0" % (ref_dxf, pole, z[pole]))
+        if z.get("wylacz"):                      # odznaczona - nie wgrywamy
+            wpis["wylacz"] = True
         if wpis:
             poprawki[ref_dxf] = wpis
     for o in odrzucone[:5]:

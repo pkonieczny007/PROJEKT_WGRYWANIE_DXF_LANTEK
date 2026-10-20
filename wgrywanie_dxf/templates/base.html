@@ -87,6 +87,10 @@
     :root{--mag:#d97706;--mag-tlo:#fff3d6;--mag-txt:#7a3d00}
     @media (prefers-color-scheme:dark){:root{--mag:#fbbf24;--mag-tlo:#3d2a05;--mag-txt:#ffe7a8}}
     tr.magazyn td{background:var(--mag-tlo)}
+    /* pozycja odznaczona - nie bedzie wgrana */
+    tr.wylaczona td{opacity:.42}
+    tr.wylaczona td:first-child{opacity:1}
+    tr.wylaczona input.zm-ref{text-decoration:line-through}
     tr.magazyn td:first-child{box-shadow:inset 4px 0 0 var(--mag)}
     .znak-mag{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:4px;font-size:11.5px;
       font-weight:700;background:var(--mag);color:#1a1a1a;white-space:nowrap}

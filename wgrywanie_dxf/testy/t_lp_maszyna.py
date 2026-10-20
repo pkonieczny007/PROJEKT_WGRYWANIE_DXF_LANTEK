@@ -136,6 +136,18 @@ sprawdz("material spoza INTEGRY odrzucony", "NIE_MA" not in (st.get("poprawki") 
 sprawdz("poprzednie zmiany zostaly (grupa + wyjatek)",
         p0["ref_dxf"] in st["poprawki"] and st["maszyny_grup"].get(grupa["klucz"]) == "laser")
 
+print("\n2c. checkbox - pozycja wylaczona recznie nie idzie do LANTEKA")
+p3 = cienkie[2]
+zmiany["pozycje"][p3["ref_dxf"]] = {"wylacz": True}
+c.post("/dxf/przebieg", data={"akcja": "zmiany", "zmiany_json": json.dumps(zmiany)})
+st = stan()
+q3 = next(p for p in st["podglad"] if p["ref_dxf"] == p3["ref_dxf"])
+sprawdz("wylaczona: w podgladzie zostaje, w do_wgrania jej nie ma",
+        q3["wylaczona"] and p3["ref"] not in {p["ref"] for p in st["do_wgrania"]})
+sprawdz("bilans: wylaczonych %s" % st["kontrola"]["bilans"].get("wylaczonych"),
+        st["kontrola"]["bilans"].get("wylaczonych") == 1)
+sprawdz("pozostale zmiany reczne zostaly", p2["ref_dxf"] in st["poprawki"])
+
 print("\n3. XML + poprawka marszruty")
 c.post("/dxf/przebieg", data={"akcja": "xml"})
 x = stan()["xml"]
