@@ -304,7 +304,7 @@ def _krok_wgraj(st, cfg):
 
     wynik = powersync.wgraj(dane["xml"], cfg["XMLIMPORTER_EXE"], cfg["IMPORTER_LOG_DIR"],
                             _folder(), user=cfg["XMLIMPORTER_USER"],
-                            haslo=cfg["XMLIMPORTER_PASS"], limit_s=cfg["IMPORT_TIMEOUT_S"])
+                            haslo=cfg["XMLIMPORTER_PASS"])
     html = raport.zapisz_wgranie(wynik, _folder(), dane["xml"],
                                  len(st.get("do_wgrania", [])))
     _stan({"wgranie": {"podsumowanie": wynik.podsumowanie(), "bledow": wynik.bledow,

@@ -129,6 +129,13 @@ identyczną marszrutę (`2D Cut`), więc realnie różnicuje je tylko gięcie.
 - **Podfolder w `GeometryPath`** — wszystkie 14 962 historyczne importy wskazywały
   pliki płasko w `DXF\`. Kopiujemy do podfolderu per zlecenie (pełna ścieżka w XML).
   Gdyby import zgłosił `Cannot find geometry file`, ustaw `DXF_PODFOLDER=0` w `.env`.
+- **Import bez limitu czasu** (19.10.2026, zlecenie `64_8344`). Importer zakłada pusty
+  log na starcie, a treść pisze dopiero po wszystkich poleceniach, wykonując je grupami:
+  `PRODUCTS` → `IMPORTGEO` (DXF, to trwa) → `SALE ORDERS` → `SALE ORDER LINES`. Limit
+  60 s ubił importer w trakcie geometrii: produkty weszły, zamówienia i linii nie było.
+  Teraz czekamy do kompletnego logu; bez logu kończymy tylko wtedy, gdy importer sam się zamknął.
+- **Okno postępu za przeglądarką** — serwis odpala importer w tle, Windows otwiera okno
+  pod przeglądarką. `powersync._okno_na_wierzch` wyciąga je na wierzch (TOPMOST → NOTOPMOST).
 
 ## Pliki
 
@@ -172,5 +179,5 @@ geometrii (`C:\Lantek\importxml\DXF99_9999\...`) zadzialal bez zastrzezen.
 - **Sprawdzanie daszków** — pole w formularzu jest, ale wyłączone. Daszek to blacha,
   do której dochodzą otwory pod uniwersalną giętą nakładkę; stare pliki z bazy ich nie
   mają. Definicja do doprecyzowania.
-- Wgrywanie na **prawdziwym zleceniu** — dotąd tylko zlecenie testowe `199_9999`
-  (3 elementy). Kontrola po wgraniu (krok 4) nie była jeszcze klikana w aplikacji.
+- Wgrywanie na **prawdziwym zleceniu** — pierwsza próba `64_8344` (18 elementów,
+  19.10.2026) padła na limicie 60 s (opis w pułapkach); po poprawce do powtórzenia.

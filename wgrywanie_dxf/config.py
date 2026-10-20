@@ -30,7 +30,7 @@ class Config:
     # "Cannot find geometry file" - ustaw tu 0 i powtorz.
     DXF_PODFOLDER = _p("DXF_PODFOLDER", "1") not in ("0", "", "false", "False")
     IMPORTER_LOG_DIR = _p("IMPORTER_LOG_DIR", r"C:\Lantek\importxml\Importer log")
-    IMPORT_TIMEOUT_S = int(_p("IMPORT_TIMEOUT_S", "600"))
+    # Import NIE MA limitu czasu (dlugie zlecenia) - patrz services/powersync.py
 
     # --- baza (TYLKO SELECT) ----------------------------------------------
     DB = {

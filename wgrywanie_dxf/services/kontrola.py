@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import dxf_check, marszruta, ruty
-from .wspolne import MAX_REF, cp1250_ok, liczba_txt
+from .wspolne import MAX_REF, cp1250_ok, do_liczby, liczba_txt
 
 MAPOWANIE = json.loads((Path(__file__).resolve().parent.parent / "mapowanie.json")
                        .read_text(encoding="utf-8"))
@@ -123,19 +123,32 @@ def podpowiedz_material(gatunek, materialy_bazy) -> list:
 
 
 def zestawienie_materialow(wiersze, materialy_bazy=None) -> list:
-    """Co na co idzie - do pokazania czlowiekowi PRZED wgraniem."""
+    """Co na co idzie - do pokazania czlowiekowi PRZED wgraniem.
+    Grupa = grubosc + gatunek (-> MatRef); liczymy pozycje i sztuki (ilosc, ktora
+    idzie do XML jako Quantity). Sortowanie: MatRef, potem grubosc rosnaco."""
     licz = {}
     for w in wiersze:
         gat = (w.poz.gatunek or "(brak)")
-        klucz = (gat, w.material or "(brak mapowania)")
-        licz[klucz] = licz.get(klucz, 0) + 1
+        klucz = (do_liczby(w.poz.grubosc), gat, w.material or "(brak mapowania)")
+        g = licz.setdefault(klucz, {"pozycji": 0, "sztuk": 0.0})
+        g["pozycji"] += 1
+        g["sztuk"] += do_liczby(w.poz.ilosc) or 0
     out = []
-    for (gat, mat), ile in sorted(licz.items(), key=lambda kv: -kv[1]):
+    for (grub, gat, mat), g in sorted(
+            licz.items(), key=lambda kv: (kv[0][2], kv[0][0] is None, kv[0][0] or 0)):
         out.append({
-            "gatunek": gat, "material": mat, "pozycji": ile,
+            "grubosc": liczba_txt(grub) or "(brak)", "gatunek": gat, "material": mat,
+            "pozycji": g["pozycji"], "sztuk": float(liczba_txt(g["sztuk"]) or 0),
             "w_kartotece": (None if not materialy_bazy else mat in materialy_bazy),
         })
     return out
+
+
+def suma_materialow(materialy) -> dict:
+    """Wiersz SUMA pod zestawieniem materialow."""
+    return {"grup": len(materialy),
+            "pozycji": sum(m.get("pozycji", 0) for m in materialy),
+            "sztuk": sum(m.get("sztuk", 0) or 0 for m in materialy)}
 
 
 def _scal_duplikaty(pozycje, tryb_ilosci="pierwszy"):

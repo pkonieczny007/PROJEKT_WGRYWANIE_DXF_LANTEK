@@ -7,7 +7,7 @@ import html
 import json
 from datetime import datetime
 
-from .kontrola import OK, STOP, UWAGA
+from .kontrola import OK, STOP, UWAGA, suma_materialow
 from .wspolne import liczba_txt, sciezka
 
 _CSS = """
@@ -122,11 +122,18 @@ def sekcje_przed(wynik) -> list:
         for m in wynik.materialy:
             ok_kart = m["w_kartotece"]
             klasy_m.append("" if ok_kart is None else ("OK" if ok_kart else "STOP"))
-            wiersze_m.append([m["gatunek"], m["material"], m["pozycji"],
+            wiersze_m.append([m.get("grubosc", ""), m["gatunek"], m["material"],
+                              m["pozycji"], liczba_txt(m.get("sztuk")),
                               "?" if ok_kart is None else ("tak" if ok_kart else "NIE MA")])
-        sekcje.append(("Materialy - co na co idzie", _tabela(
-            ["gatunek z referencji", "MatRef w LANTEKU", "pozycji", "jest w kartotece"],
-            wiersze_m, klasy=klasy_m, prawo=(2,))))
+        s = suma_materialow(wynik.materialy)
+        wiersze_m.append([_Raw("<b>SUMA</b>"), "", _Raw("<b>%d grup</b>" % s["grup"]),
+                          _Raw("<b>%d</b>" % s["pozycji"]),
+                          _Raw("<b>%s</b>" % _e(liczba_txt(s["sztuk"]))), ""])
+        klasy_m.append("")
+        sekcje.append(("Materialy - co na co idzie (grubosc + gatunek)", _tabela(
+            ["grubosc [mm]", "gatunek z referencji", "MatRef w LANTEKU", "pozycji",
+             "sztuk", "jest w kartotece"],
+            wiersze_m, klasy=klasy_m, prawo=(0, 3, 4))))
 
     wiersze, klasy = [], []
     for w in wynik.wiersze:
