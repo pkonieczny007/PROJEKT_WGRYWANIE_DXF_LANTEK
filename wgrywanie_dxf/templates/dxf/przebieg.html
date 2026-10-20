@@ -27,8 +27,23 @@
       <div class="karta"><b>{{ k.do_poprawy_maszyny or 0 }}</b><span>maszyna poprawiana</span></div>
     </div>
     {% set b = k.bilans or {} %}
+    {% if k.zakres_opis %}
+      <p><b>Zakres:</b> {{ k.zakres_opis }}
+        {% if b.magazyn %}&middot; <span class="zle">pominiete MAGAZYN: {{ b.magazyn }}</span>{% endif %}
+        {% if b.magazyn_czesciowo %}&middot; <span class="znak-mag">czesciowo z magazynu (wgrywane, sprawdz ilosc): {{ b.magazyn_czesciowo }}</span>{% endif %}
+        {% if b.bez_referencji %}&middot; bez referencji (pominiete): {{ b.bez_referencji }}{% endif %}
+        {% if b.poza_zakresem %}&middot; z referencja, ale poza warunkami: {{ b.poza_zakresem }}{% endif %}</p>
+      {% if k.pominiete %}
+        <details><summary class="mini" style="cursor:pointer">pokaz pominiete MAGAZYN ({{ k.pominiete|length }})</summary>
+          <table>
+            <tr><th>wiersz</th><th>referencja</th><th>dlaczego</th></tr>
+            {% for x in k.pominiete %}<tr><td class="n">{{ x.wiersz }}</td><td>{{ x.ref }}</td><td>{{ x.powod }}</td></tr>{% endfor %}
+          </table>
+        </details>
+      {% endif %}
+    {% endif %}
     {% if b %}
-      <p><b>Bilans:</b> wierszy blachy w wykazie {{ b.wierszy }}
+      <p><b>Bilans:</b> wierszy w zakresie {{ b.wierszy }}
          {% if b.lp %}+ {{ b.lp }} drugich stron z wierszy LP{% endif %}
          = <b>{{ b.oczekiwanych }}</b> elementow DXF oczekiwanych &middot;
          pozycji po kontroli <b>{{ b.pozycji }}</b>
@@ -106,6 +121,7 @@
           <select data-pole="lantek"><option value="">LANTEK sam: wszystkie</option></select>
           <select data-pole="kod"><option value="">kod: wszystkie</option></select>
           <select data-pole="dxf"><option value="">DXF: wszystkie</option></select>
+          <select data-pole="mag"><option value="">magazyn: wszystkie</option></select>
           <select data-pole="tylko">
             <option value="">pokaz: wszystkie</option>
             <option value="poprawka">z poprawka marszruty</option>
@@ -114,6 +130,7 @@
             <option value="wbazie">juz w bazie LANTEKA</option>
             <option value="wyjatek">z wyjatkiem maszyny</option>
             <option value="reczna">ze zmiana reczna (dowolna)</option>
+            <option value="magazyn">czesciowo z magazynu (MAGAZYN Nszt)</option>
           </select>
           <button type="button" id="f-wyczysc">wyczysc</button>
         </div>
@@ -136,13 +153,14 @@
             {% set g_wyk = r.grubosc[0] if r.grubosc else p.grubosc %}
             {% set il_wyk = r.ilosc[0] if r.ilosc else p.ilosc %}
             {% set mat_auto = r.material[0] if r.material else p.material %}
-            <tr class="{{ p.poziom }}" data-poziom="{{ p.poziom }}"
+            <tr class="{{ p.poziom }}{{ ' magazyn' if p.magazyn }}" data-poziom="{{ p.poziom }}"
                 data-grubosc="{{ liczba(p.grubosc) }}"
                 data-gatunek="{{ p.gatunek or '' }}" data-maszyna="{{ p.maszyna or '' }}"
                 data-grgat="{{ liczba(p.grubosc) }}_{{ p.gatunek or '' }}"
                 data-lantek="{{ p.maszyna_lantek or '?' }}" data-kod="{{ p.kod or '(pusty)' }}"
                 data-dxf="{{ p.stan_dxf or '-' }}"
-                data-tylko="{{ 'poprawka ' if p.popraw_marszrute }}{{ 'strona ' if p.strona }}{{ 'zmieniona ' if p.ref != p.ref_dxf }}{{ 'wbazie ' if p.w_bazie }}{{ 'wyjatek ' if p.maszyna_zrodlo == 'pozycja' }}{{ 'reczna' if (r or p.ruta_reczna or p.maszyna_zrodlo == 'pozycja' or p.ref != p.ref_dxf) }}">
+                data-mag="{{ 'czesciowo z magazynu' if p.magazyn else 'bez magazynu' }}"
+                data-tylko="{{ 'poprawka ' if p.popraw_marszrute }}{{ 'strona ' if p.strona }}{{ 'zmieniona ' if p.ref != p.ref_dxf }}{{ 'wbazie ' if p.w_bazie }}{{ 'magazyn ' if p.magazyn }}{{ 'wyjatek ' if p.maszyna_zrodlo == 'pozycja' }}{{ 'reczna' if (r or p.ruta_reczna or p.maszyna_zrodlo == 'pozycja' or p.ref != p.ref_dxf) }}">
               <td>{{ p.poziom }}</td>
               <td class="n">{{ p.wiersz }}{% if p.strona %} <b>{{ p.strona }}</b>{% endif %}</td>
               <td style="min-width:300px">
@@ -161,7 +179,8 @@
                 {% if r.grubosc %}<div class="mini">bylo: {{ liczba(g_wyk) }}</div>{% endif %}</td>
               <td><input type="text" class="zm-il pole-m" data-ref-dxf="{{ p.ref_dxf }}"
                          data-orig="{{ liczba(il_wyk) }}" value="{{ liczba(p.ilosc) }}" size="4" autocomplete="off">
-                {% if r.ilosc %}<div class="mini">bylo: {{ liczba(il_wyk) }}</div>{% endif %}</td>
+                {% if r.ilosc %}<div class="mini">bylo: {{ liczba(il_wyk) }}</div>{% endif %}
+                {% if p.magazyn %}<div class="znak-mag" title="{{ p.magazyn }}">{{ p.magazyn.split(': ', 1)[-1] }}</div>{% endif %}</td>
               <td>{{ p.kod or "-" }}</td>
               <td>
                 <select class="zm-maszyna pole-m" data-ref-dxf="{{ p.ref_dxf }}" data-orig="">

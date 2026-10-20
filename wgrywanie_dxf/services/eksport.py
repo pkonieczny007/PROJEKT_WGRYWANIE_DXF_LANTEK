@@ -46,8 +46,10 @@ KOLUMNY = [
     ("w zamowieniach", lambda p: ", ".join(p.get("w_zamowieniach") or []), None),
     ("zmiany reczne (bylo -> jest)", lambda p: "; ".join(
         "%s: %s -> %s" % (k, v[0], v[1]) for k, v in (p.get("reczne") or {}).items()), None),
+    ("czesciowo z magazynu", "magazyn", None),
     ("uwagi", lambda p: "\n".join(p.get("uwagi") or []), None),
 ]
+MAGAZYN = PatternFill("solid", fgColor="FFE7A8")
 
 
 def _zmienione(p) -> set:
@@ -91,6 +93,9 @@ def zbuduj(st) -> Workbook:
         kolor = KOLOR_POZIOMU.get(p.get("poziom"))
         if kolor:
             ws.cell(r, 1).fill = PatternFill("solid", fgColor=kolor)
+        if p.get("magazyn"):                 # 'MAGAZYN 2szt' - caly wiersz na bursztynowo
+            for cell in ws[r]:
+                cell.fill = MAGAZYN
         for i, (_n, _kl, pole) in enumerate(KOLUMNY, start=1):
             if pole and pole in zm:
                 ws.cell(r, i).fill = RECZNA
@@ -120,7 +125,17 @@ def zbuduj(st) -> Workbook:
         wm.append([])
         wm.append(["bilans", "wierszy blachy %s + LP %s = oczekiwanych %s; pozycji po kontroli %s"
                    % (b.get("wierszy"), b.get("lp"), b.get("oczekiwanych"), b.get("pozycji"))])
+    if k.get("zakres_opis"):
+        wm.append(["zakres", k["zakres_opis"]])
     _szerokosci(wm)
+
+    pom = k.get("pominiete") or []
+    if pom:
+        wp = wb.create_sheet("Pominiete MAGAZYN")
+        _naglowek(wp, ["wiersz wykazu", "referencja", "dlaczego"])
+        for x in pom:
+            wp.append([x.get("wiersz"), x.get("ref"), x.get("powod")])
+        _szerokosci(wp)
     return wb
 
 

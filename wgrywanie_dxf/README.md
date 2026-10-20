@@ -174,6 +174,31 @@ a litera S jest w każdej referencji z `S235`/`S355`/`SL…`. Takie blachy (kody
   przy każdej kontroli (też po „Zastosuj zmiany”); przycisk „Eksport Excel” pobiera świeży
   (gdy plik jest otwarty w Excelu, zapis w folderze się nie uda — komunikat, przycisk działa).
 
+## Zakres wgrywania i MAGAZYN
+
+Decyzje użytkownika (20.10.2026), konfiguracja w `mapowanie.json` → `zakres`:
+
+- Wgrywamy **tylko wiersze z wpisaną referencją**. Wiersz w zakresie bez referencji jest
+  pomijany i liczony (`BEZ_REFERENCJI_POMINIETE`); STOP tylko, gdy to nieprzeliczona formuła.
+- Domyślnie dodatkowo **ZAKUPY = blacha** (blacha/blachy/BLACHA…) — checkbox, można wyłączyć.
+- Plusem dodaje się warunki **kolumna = wartość** (domyślnie kolumna `sprawdzenie`).
+  Podpowiedzi wartości są czytane **z wybranego wykazu** (każdy ma inne), z liczbą wierszy;
+  porównanie bez wielkości liter (`Z BAZY` = `z bazy`). Ta sama kolumna kilka razy = LUB
+  (zakres rośnie), różne kolumny = I.
+- **MAGAZYN**: gdy w kolumnach MODUŁ, komentarze dla technologów, INFO, KOOP/USŁUGA,
+  MONTAŻ/WYSYŁKA — **tylko na lewo od kolumny z referencją** (na prawo bywają duplikaty) —
+  stoi „MAGAZYN”, wiersza nie wgrywamy (lista na stronie kontroli i w Excelu,
+  zakładka „Pominiete MAGAZYN”).
+- **„MAGAZYN 2szt” / „2SZT” / „2 sztuki”** (MAGAZYN z liczbą) = część z magazynu, ilość
+  pomniejszona: wiersz **wgrywamy**, ale jest podświetlony na bursztynowo (strona i Excel),
+  uwaga `MAGAZYN_CZESCIOWO`, filtr „częściowo z magazynu”. Ilości aplikacja nie zmienia —
+  w razie potrzeby popraw ręcznie w podglądzie.
+
+Kolumna z referencją i z ilością: domyślnie `Nazwa` i `Anz.`, obok ▾ rozwija listę
+nagłówków wybranego wykazu (najpierw `Nazwa…` / `Anz.`, `ILOŚĆ…`), klik wpisuje do pola.
+Dopasowanie bez wielkości liter i kropek, wygrywa lewa kolumna; nieznana nazwa → wybór
+automatyczny + uwaga `ZAKRES` w kontroli.
+
 ## Lewe i prawe (LP) oraz duplikaty
 
 - Wiersz wykazu z końcówką `_LP` (np. `3_S235_41549_p1_2st_GS_1129_LP`, ilość 2) to **dwa
@@ -257,6 +282,7 @@ python testy/t_formularz_start.py 37_1731   # podpowiedzi folderu/zamówień, w�
 python testy/t_ponowne_wgranie.py           # ochrona przed ponownym wgraniem (atrapa importu)
 python testy/t_lp_maszyna.py                # LP, maszyna, edycja referencji, drugi import (82_1129)
 python testy/t_rejestr_zrodel.py            # rejestr zrodel DXF: dopisywanie, backup, plik zajety
+python testy/t_zakres.py 75_8981            # zakres (blacha, warunki z plusem), MAGAZYN, MAGAZYN 2szt
 ```
 
 Testy z atrapą importu ustawiają `REJESTR_ZRODEL_DIR` na katalog tymczasowy — nie piszą

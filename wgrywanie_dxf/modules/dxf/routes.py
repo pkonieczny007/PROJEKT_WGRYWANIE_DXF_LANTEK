@@ -116,7 +116,27 @@ def _pliki():
 def _wczytaj_wykaz(st):
     return W.wczytaj(st["wykaz"], kolumna_nazwy=st.get("kolumna_nazwy") or None,
                      kolumna_ilosci=st.get("kolumna_ilosci") or None,
-                     zrodlo=st.get("zrodlo_wymiarow", "referencja"))
+                     zrodlo=st.get("zrodlo_wymiarow", "referencja"),
+                     zakres=st.get("zakres") or W.zakres_domyslny())
+
+
+def _zakres_z_formularza():
+    """Zakres ze strony startowej: ZAKUPY=blacha (wl/wyl), warunki 'kolumna =
+    wartosc' dodane plusem (JSON), pomijanie MAGAZYN. Formularz bez pol zakresu
+    (stary klient, testy) = zakres domyslny - niezaznaczony checkbox wygladalby
+    jak swiadome wylaczenie filtra ZAKUPY."""
+    if "zakres_json" not in request.form:
+        return W.zakres_domyslny()
+    try:
+        warunki = json.loads(request.form.get("zakres_json") or "[]")
+    except ValueError:
+        warunki = []
+    warunki = [{"kol": w.get("kol"), "naglowek": (w.get("naglowek") or "").strip(),
+                "wartosc": (w.get("wartosc") or "").strip()}
+               for w in warunki if isinstance(w, dict) and (w.get("naglowek") or "").strip()]
+    return {"zakupy_blacha": bool(request.form.get("zakupy_blacha")),
+            "pomin_magazyn": bool(request.form.get("pomin_magazyn")),
+            "warunki": warunki}
 
 
 def _kontroluj(st, cn):
@@ -185,6 +205,7 @@ def start():
                 "badaj_dxf": bool(request.form.get("badaj_dxf")),
                 "tryb_ilosci": request.form.get("tryb_ilosci", "stop"),
                 "zrodlo_wymiarow": request.form.get("zrodlo_wymiarow", "referencja"),
+                "zakres": _zakres_z_formularza(),
                 "dokladaj_spawanie": bool(request.form.get("dokladaj_spawanie")),
                 "dokladaj_ocynk": bool(request.form.get("dokladaj_ocynk")),
                 "wymus_marszrute": bool(request.form.get("wymus_marszrute")),
@@ -196,6 +217,23 @@ def start():
         ZAM.odswiez(cfg["DB"])
     return render_template("dxf/start.html", prop=prop, numer=numer, st=st,
                            zam=ZAM.info(numer) if numer else None)
+
+
+@bp.route("/api/wykaz_kolumny")
+def api_wykaz_kolumny():
+    """Naglowki wykazu i wartosci kolumn - podpowiedzi do zakresu ('sprawdzenie = ...').
+    Wartosci sa z TEGO wykazu, bo kazdy ma swoje."""
+    plik = (request.args.get("wykaz") or "").strip()
+    if not plik:
+        return jsonify(ok=False, blad="brak sciezki wykazu")
+    try:
+        out = W.kolumny_i_wartosci(plik)
+    except FileNotFoundError:
+        return jsonify(ok=False, blad="nie ma takiego pliku")
+    except Exception as e:
+        return jsonify(ok=False, blad="%s: %s" % (type(e).__name__, e))
+    out["ok"] = True
+    return jsonify(out)
 
 
 @bp.route("/api/zlecenie")
@@ -287,6 +325,7 @@ def _krok_kontrola(st, cfg):
             "klucz_grupy": kontrola.klucz_grupy(w.poz.grubosc, w.poz.gatunek),
             "reczne": w.poz.reczne, "ruta_reczna": w.ruta_reczna,
             "operacje_reczne": w.operacje_reczne,
+            "magazyn": w.poz.magazyn,
         }
 
     do_wgrania = [_opis(w) for w in wynik.do_wgrania]
@@ -302,6 +341,8 @@ def _krok_kontrola(st, cfg):
         "baza_dostepna": wynik.baza_dostepna,
         "sierot": len(wynik.sieroty),
         "materialy": wynik.materialy,
+        "zakres_opis": wyk.zakres_opis,
+        "pominiete": wyk.pominiete[:2000],
         "zrodlo_wymiarow": st.get("zrodlo_wymiarow", "referencja"),
         "wszystkich": len(wynik.wiersze),
         "bilans": wynik.bilans,

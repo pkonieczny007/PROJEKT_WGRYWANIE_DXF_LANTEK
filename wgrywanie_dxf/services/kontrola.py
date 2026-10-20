@@ -329,7 +329,24 @@ def przed(wykaz, folder_dxf, ordref, cn=None, podfoldery=False, badaj_dxf=True,
                     "oczekiwanych": len(wykaz.pozycje) + ile_lp - len(bledy_lp),
                     "pozycji": len(scalone),
                     "w_duplikatach": sum(len(w) - 1 for _p, w, _s, _r in scalone),
-                    "poprawionych_ref": poprawionych}
+                    "poprawionych_ref": poprawionych,
+                    "zakres": getattr(wykaz, "zakres_opis", ""),
+                    "magazyn": len(getattr(wykaz, "pominiete", []) or []),
+                    "magazyn_czesciowo": sum(1 for p in wykaz.pozycje if getattr(p, "magazyn", "")),
+                    "bez_referencji": getattr(wykaz, "bez_referencji", 0),
+                    "poza_zakresem": getattr(wykaz, "poza_zakresem", 0)}
+
+    # zakres: czego NIE wgrywamy - glosno, zeby nic nie zginelo po cichu
+    pom = getattr(wykaz, "pominiete", []) or []
+    if pom:
+        wynik.ogolne.append(Uwaga(UWAGA, "POMINIETE_MAGAZYN",
+            "%d wierszy z MAGAZYN nie wgrywamy (np. w. %s)"
+            % (len(pom), ", ".join(str(x["wiersz"]) for x in pom[:5]))))
+    if getattr(wykaz, "bez_referencji", 0) and not wykaz.formuly_puste:
+        wynik.ogolne.append(Uwaga(UWAGA, "BEZ_REFERENCJI_POMINIETE",
+            "%d wierszy w zakresie nie ma referencji - nie wgrywamy" % wykaz.bez_referencji))
+    for u in getattr(wykaz, "zakres_uwagi", []) or []:
+        wynik.ogolne.append(Uwaga(UWAGA, "ZAKRES", u))
 
     # --- pliki DXF (jeden folder albo kilka)
     foldery = folder_dxf if isinstance(folder_dxf, (list, tuple)) else [folder_dxf]
@@ -395,6 +412,10 @@ def przed(wykaz, folder_dxf, ordref, cn=None, podfoldery=False, badaj_dxf=True,
         blad_kod = cp1250_ok(p.ref)
         if blad_kod:
             w.dodaj(STOP, "ZNAK_SPOZA_CP1250", "XML idzie w windows-1250: %s" % blad_kod)
+        if p.magazyn:
+            w.dodaj(UWAGA, "MAGAZYN_CZESCIOWO",
+                    "%s - czesc z magazynu: sprawdz, czy ilosc %s jest juz pomniejszona"
+                    % (p.magazyn, liczba_txt(p.ilosc)))
         if p.wiersz in bledy_lp:
             w.dodaj(STOP, "LP_NIE_DZIELI_SIE", bledy_lp[p.wiersz])
         elif p.strona:

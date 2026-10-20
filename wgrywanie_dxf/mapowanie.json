@@ -165,6 +165,19 @@
     "NIERDZEWKA": "nierdzewka",
     "MS": "[MS]"
   },
+  "_zakres_opis": [
+    "Ktore wiersze wykazu wgrywamy. Zawsze tylko wiersze z wpisana referencja.",
+    "Domyslnie dodatkowo ZAKUPY zawiera 'blach' (wylaczane w UI) + warunki 'kolumna = wartosc' dodawane plusem.",
+    "Wiersz, w ktorym ktorakolwiek kolumna z kolumny_magazyn zawiera slowo_magazyn, NIE jest wgrywany",
+    "(element z magazynu - decyzja uzytkownika 20.10.2026). Szukamy TYLKO w kolumnach NA LEWO od",
+    "kolumny z referencja - na prawo bywaja kopie/duplikaty kolumn."
+  ],
+  "zakres": {
+    "kolumny_magazyn": ["MODUL", "komentarze dla technologow", "INFO", "KOOP/USLUGA",
+                        "MONTAZ/WYSYLKA"],
+    "slowo_magazyn": "magazyn",
+    "domyslna_kolumna_warunku": "sprawdzenie"
+  },
   "_kolumny_opis": "Aliasy naglowkow wykazu roboczego. Szukamy po PREFIKSIE, wygrywa kolumna NAJBARDZIEJ Z LEWEJ.",
   "kolumny": {
     "zakupy": [

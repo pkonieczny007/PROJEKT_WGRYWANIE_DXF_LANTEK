@@ -45,12 +45,39 @@
     <div class="rzad">
       <div style="flex:1;min-width:220px">
         <label>Kolumna z referencja (puste = wybor automatyczny)</label>
-        <input type="text" name="kolumna_nazwy" placeholder="Nazwa / NAZWA_teraz / NAZWA_docelowa">
+        <div class="z-rozwin">
+          <input type="text" name="kolumna_nazwy" id="kolumna_nazwy" value="Nazwa" autocomplete="off"
+                 placeholder="Nazwa / NAZWA_teraz / NAZWA_docelowa">
+          <button type="button" class="rozwin" data-cel="kolumna_nazwy" title="kolumny z wykazu">&#9662;</button>
+        </div>
+        <div class="podpowiedzi lista-kol" id="lista-kolumna_nazwy" data-cel="kolumna_nazwy" hidden></div>
       </div>
       <div style="flex:1;min-width:220px">
         <label>Kolumna z iloscia (puste = Anz.)</label>
-        <input type="text" name="kolumna_ilosci" placeholder="Anz. / ILOSC DO WYKONANIA">
+        <div class="z-rozwin">
+          <input type="text" name="kolumna_ilosci" id="kolumna_ilosci" value="Anz." autocomplete="off"
+                 placeholder="Anz. / ILOSC DO WYKONANIA">
+          <button type="button" class="rozwin" data-cel="kolumna_ilosci" title="kolumny z wykazu">&#9662;</button>
+        </div>
+        <div class="podpowiedzi lista-kol" id="lista-kolumna_ilosci" data-cel="kolumna_ilosci" hidden></div>
       </div>
+    </div>
+    <div class="zakres">
+      <label style="color:inherit;font-weight:600">Zakres &mdash; ktore wiersze wykazu wgrywamy</label>
+      <p class="mini" style="margin:0 0 4px">Zawsze tylko wiersze z wpisana referencja. Ten sam warunek
+         dodany kilka razy (np. sprawdzenie = Z BAZY i = Z BAZY P+L) poszerza zakres;
+         warunki na roznych kolumnach musza byc spelnione razem.</p>
+      <label class="ch"><input type="checkbox" name="zakupy_blacha" checked>
+        <b>ZAKUPY = blacha</b> (blacha, blachy, BLACHA&hellip; &mdash; wielkosc liter bez znaczenia)</label>
+      <div id="warunki"></div>
+      <div class="rzad" style="margin-top:4px">
+        <button type="button" id="dodaj-warunek" disabled>+ dodaj warunek kolumna = wartosc</button>
+        <span class="mini" id="zakres-info">wskaz wykaz, zeby wczytac jego kolumny</span>
+      </div>
+      <label class="ch"><input type="checkbox" name="pomin_magazyn" checked>
+        pomijaj elementy z <b>MAGAZYN</b> (kolumny MODUL, komentarze dla technologow, INFO,
+        KOOP/USLUGA, MONTAZ/WYSYLKA &mdash; tylko na lewo od kolumny z referencja)</label>
+      <input type="hidden" name="zakres_json" id="zakres_json" value="[]">
     </div>
     <label>Grubosc i gatunek bierzemy z</label>
     <label class="ch"><input type="radio" name="zrodlo_wymiarow" value="referencja" checked>
@@ -250,6 +277,155 @@
   ordrefStatus();
   zaznacz();
   if ($("numer").value.trim()) sprawdzNumer(true);
+
+  // ---- zakres: warunki 'kolumna = wartosc' z podpowiedziami z WYBRANEGO wykazu
+  var KOL = null, DOM = null, ostatniWykaz = "";
+  var boxW = $("warunki"), plus = $("dodaj-warunek"), info = $("zakres-info");
+  var API_KOL = "{{ url_for('dxf.api_wykaz_kolumny') }}";
+
+  function opcja(sel, v, txt) {
+    var o = document.createElement("option"); o.value = v; o.textContent = txt; sel.appendChild(o); return o;
+  }
+  function kolumna(kol) { return (KOL || []).find(function (k) { return String(k.kol) === String(kol); }); }
+
+  function wypelnijWartosci(wiersz, zostaw) {
+    var k = kolumna(wiersz.querySelector(".w-kol").value), miejsce = wiersz.querySelector(".w-wart-box");
+    miejsce.innerHTML = "";
+    if (k && k.wartosci.length) {
+      var s = document.createElement("select"); s.className = "w-wart"; s.style.width = "auto";
+      opcja(s, "", "- wybierz wartosc -");
+      k.wartosci.forEach(function (w) { opcja(s, w.v, w.v + "  (" + w.n + " wierszy)"); });
+      opcja(s, "__inna__", "inna - wpisz recznie...");
+      if (zostaw && k.wartosci.some(function (w) { return w.v.toLowerCase() === zostaw.toLowerCase(); })) {
+        s.value = k.wartosci.find(function (w) { return w.v.toLowerCase() === zostaw.toLowerCase(); }).v;
+      }
+      s.addEventListener("change", function () {
+        if (s.value === "__inna__") {
+          miejsce.innerHTML = "";
+          var t = document.createElement("input"); t.type = "text"; t.className = "w-wart";
+          t.placeholder = "wartosc"; t.style.width = "220px"; miejsce.appendChild(t); t.focus();
+        }
+        policz();
+      });
+      miejsce.appendChild(s);
+    } else {
+      var t = document.createElement("input"); t.type = "text"; t.className = "w-wart";
+      t.placeholder = k ? "za duzo roznych wartosci - wpisz" : "wartosc"; t.style.width = "220px";
+      t.value = zostaw || ""; t.addEventListener("input", policz); miejsce.appendChild(t);
+    }
+  }
+
+  function dodajWarunek(kol, wartosc) {
+    var w = document.createElement("div"); w.className = "rzad warunek"; w.style.marginTop = "4px";
+    var s = document.createElement("select"); s.className = "w-kol"; s.style.width = "auto";
+    (KOL || []).forEach(function (k) { opcja(s, k.kol, k.naglowek); });
+    s.value = (kol !== undefined && kol !== null) ? kol : (DOM !== null ? DOM : (KOL[0] || {}).kol);
+    var eq = document.createElement("span"); eq.textContent = "=";
+    var box = document.createElement("span"); box.className = "w-wart-box";
+    var x = document.createElement("button"); x.type = "button"; x.textContent = "×";
+    x.title = "usun warunek"; x.style.padding = "3px 10px";
+    x.addEventListener("click", function () { w.remove(); policz(); });
+    s.addEventListener("change", function () { wypelnijWartosci(w); policz(); });
+    w.appendChild(s); w.appendChild(eq); w.appendChild(box); w.appendChild(x);
+    boxW.appendChild(w);
+    wypelnijWartosci(w, wartosc);
+    policz();
+  }
+
+  function zbierzWarunki() {
+    var out = [];
+    boxW.querySelectorAll(".warunek").forEach(function (w) {
+      var s = w.querySelector(".w-kol"), v = w.querySelector(".w-wart");
+      var val = v ? v.value.trim() : "";
+      if (!val || val === "__inna__") return;
+      var k = kolumna(s.value);
+      out.push({kol: s.value, naglowek: k ? k.naglowek : "", wartosc: val});
+    });
+    return out;
+  }
+
+  function policz() {
+    var w = zbierzWarunki(), puste = boxW.querySelectorAll(".warunek").length - w.length;
+    $("zakres_json").value = JSON.stringify(w);
+    if (!KOL) return;
+    var opis = "referencja + " + (document.querySelector("[name=zakupy_blacha]").checked ? "ZAKUPY = blacha" : "bez filtra ZAKUPY");
+    var po = {};
+    w.forEach(function (x) { (po[x.naglowek] = po[x.naglowek] || []).push(x.wartosc); });
+    Object.keys(po).forEach(function (k) { opis += " + " + k + " = " + po[k].join(" LUB "); });
+    info.textContent = "zakres: " + opis + (puste ? " (" + puste + " warunek bez wartosci - pominiety)" : "");
+  }
+
+  function wczytajKolumny() {
+    var plik = $("wykaz").value.trim();
+    if (!plik || plik === ostatniWykaz) return;
+    ostatniWykaz = plik;
+    info.textContent = "wczytuje kolumny wykazu...";
+    plus.disabled = true;
+    fetch(API_KOL + "?wykaz=" + encodeURIComponent(plik)).then(function (r) { return r.json(); })
+      .then(function (d) {
+        if ($("wykaz").value.trim() !== plik) return;
+        if (!d.ok) { KOL = null; info.textContent = "nie wczytam kolumn: " + d.blad; return; }
+        // warunki dodane dla poprzedniego wykazu - przenosimy po nazwie kolumny
+        var stare = zbierzWarunki();
+        KOL = d.naglowki; DOM = d.domyslna; plus.disabled = false;
+        budujListyKolumn();
+        boxW.innerHTML = "";
+        stare.forEach(function (x) {
+          var k = KOL.find(function (k) { return k.naglowek === x.naglowek; });
+          if (k) dodajWarunek(k.kol, x.wartosc);
+        });
+        policz();
+      })
+      .catch(function () { info.textContent = "nie udalo sie wczytac kolumn wykazu"; });
+  }
+
+  // ---- kolumna referencji / ilosci: rozwijana lista naglowkow z wykazu
+  function norm(t) {
+    return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/ł/g, "l").replace(/[^a-z0-9]/g, "");
+  }
+  var PIERWSZE = {kolumna_nazwy: function (n) { return n.indexOf("nazwa") === 0; },
+                  kolumna_ilosci: function (n) { return n.indexOf("anz") === 0 || n.indexOf("ilosc") === 0; }};
+  function budujListyKolumn() {
+    Object.keys(PIERWSZE).forEach(function (id) {
+      var box = $("lista-" + id), widziane = {}, naj = [], reszta = [];
+      (KOL || []).forEach(function (k) {
+        if (widziane[k.naglowek]) return;
+        widziane[k.naglowek] = 1;
+        (PIERWSZE[id](norm(k.naglowek)) ? naj : reszta).push(k.naglowek);
+      });
+      box.innerHTML = "";
+      naj.concat(reszta).forEach(function (h, i) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "podp" + (i < naj.length ? " rob" : "");
+        b.dataset.wartosc = h; b.textContent = h; box.appendChild(b);
+      });
+      zaznacz();
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var r = e.target.closest("button.rozwin");
+    if (r) {
+      var box = $("lista-" + r.dataset.cel);
+      if (!box.children.length) {
+        box.innerHTML = '<span class="mini">' + (KOL ? "brak kolumn" : "najpierw wskaz wykaz") + "</span>";
+      }
+      box.hidden = !box.hidden;
+      return;
+    }
+    var b = e.target.closest(".lista-kol button.podp");
+    if (b) b.closest(".lista-kol").hidden = true;      // wpisane - lista sie zwija
+  });
+  ["kolumna_nazwy", "kolumna_ilosci"].forEach(function (id) {
+    $(id).addEventListener("input", zaznacz);
+  });
+
+  plus.addEventListener("click", function () { if (KOL) dodajWarunek(); });
+  document.querySelector("[name=zakupy_blacha]").addEventListener("change", policz);
+  var zegarW;
+  $("wykaz").addEventListener("input", function () { clearTimeout(zegarW); zegarW = setTimeout(wczytajKolumny, 500); });
+  $("wykaz").form.addEventListener("submit", function () { policz(); });
+  wczytajKolumny();
 })();
 </script>
 {% endblock %}

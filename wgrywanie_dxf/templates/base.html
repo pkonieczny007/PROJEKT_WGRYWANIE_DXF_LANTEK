@@ -60,7 +60,9 @@
     .zle{color:var(--zo);font-weight:600}
     .podpowiedzi{display:flex;flex-direction:column;align-items:flex-start;gap:3px;
       margin-top:5px;max-height:210px;overflow:auto}
-    .podpowiedzi:empty{display:none}
+    .podpowiedzi:empty,.podpowiedzi[hidden]{display:none}
+    .z-rozwin{display:flex;gap:4px}
+    .z-rozwin button.rozwin{padding:4px 10px}
     button.podp{padding:3px 9px;font-size:12.5px;text-align:left;border-radius:5px;
       background:transparent;word-break:break-all}
     button.podp:hover{border-color:#1b64d9}
@@ -81,6 +83,13 @@
     .pole-m.reczna{border-color:var(--rec);background:var(--rec-tlo);color:var(--rec-txt);font-weight:600}
     .pole-m.reczna option{background:var(--tlo);color:var(--txt);font-weight:400}
     td.reczna .mini{color:var(--rec-txt)}
+    /* 'MAGAZYN 2szt' - czesc z magazynu, ilosc pomniejszona: bursztyn, caly wiersz */
+    :root{--mag:#d97706;--mag-tlo:#fff3d6;--mag-txt:#7a3d00}
+    @media (prefers-color-scheme:dark){:root{--mag:#fbbf24;--mag-tlo:#3d2a05;--mag-txt:#ffe7a8}}
+    tr.magazyn td{background:var(--mag-tlo)}
+    tr.magazyn td:first-child{box-shadow:inset 4px 0 0 var(--mag)}
+    .znak-mag{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:4px;font-size:11.5px;
+      font-weight:700;background:var(--mag);color:#1a1a1a;white-space:nowrap}
   </style>
 </head>
 <body>

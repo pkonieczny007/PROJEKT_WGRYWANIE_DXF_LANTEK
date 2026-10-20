@@ -12,6 +12,7 @@ Zasady (z /wykaz-roboczy i EKSTRAKTOR_DXF V3):
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -50,6 +51,7 @@ class Pozycja:
     ref_dxf: str = ""
     strona: str = ""              # 'L' / 'P' gdy pozycja powstala z wiersza LP
     reczne: dict = field(default_factory=dict)   # {'grubosc': [bylo, jest], ...} zmiany czlowieka
+    magazyn: str = ""             # 'MAGAZYN 2szt' - czesc z magazynu, ilosc pomniejszona
 
     @property
     def kod(self) -> str:
@@ -97,6 +99,65 @@ class Wykaz:
     kolumna_nazwy: str = ""
     kolumna_ilosci: str = ""
     formuly_puste: int = 0         # ile referencji puste mimo formuly
+    # zakres: co zostalo poza nim (zeby czlowiek widzial, czego NIE wgrywamy)
+    pominiete: list = field(default_factory=list)   # [{'wiersz','ref','powod'}] - MAGAZYN
+    bez_referencji: int = 0        # wierszy w zakresie bez referencji (nie wgrywamy)
+    poza_zakresem: int = 0         # wierszy z referencja, ktore nie spelnily warunkow
+    zakres_opis: str = ""
+    zakres_uwagi: list = field(default_factory=list)
+
+
+ZAKRES = MAPOWANIE.get("zakres", {})
+_MAGAZYN_KOL = {norm_naglowek(k) for k in ZAKRES.get("kolumny_magazyn", [])}
+_MAGAZYN_SLOWO = (ZAKRES.get("slowo_magazyn") or "magazyn").lower()
+
+
+def zakres_domyslny() -> dict:
+    """Referencja + ZAKUPY=blacha, bez dodatkowych warunkow, MAGAZYN pomijany."""
+    return {"zakupy_blacha": True, "warunki": [], "pomin_magazyn": True}
+
+
+def _rowne(a, b) -> bool:
+    """Porownanie wartosci komorek bez wielkosci liter i spacji na brzegach
+    ('Z BAZY' == 'z bazy')."""
+    return _txt(a).lower() == _txt(b).lower()
+
+
+def _warunki_po_kolumnach(warunki, naglowki) -> tuple:
+    """[{'kol': idx, 'naglowek': txt, 'wartosc': v}] -> ({idx: [wartosci]}, uwagi).
+
+    Indeks kolumny sprawdzamy z naglowkiem - gdyby wykaz sie zmienil, szukamy
+    kolumny po tekscie naglowka. Ta sama kolumna kilka razy = LUB (zakres rosnie),
+    rozne kolumny = I."""
+    grupy, uwagi = {}, []
+    for w in warunki or []:
+        nag = _txt(w.get("naglowek"))
+        try:
+            idx = int(w.get("kol"))
+        except (TypeError, ValueError):
+            idx = None
+        if idx is None or naglowki.get(idx) != nag:
+            idx = next((i for i, h in naglowki.items() if h == nag), None)
+        if idx is None:
+            uwagi.append("warunek pominiety - w wykazie nie ma kolumny '%s'" % nag)
+            continue
+        grupy.setdefault(idx, []).append(_txt(w.get("wartosc")))
+    return grupy, uwagi
+
+
+def opis_zakresu(zakres, naglowki=None) -> str:
+    zakres = zakres or zakres_domyslny()
+    cz = ["referencja wpisana"]
+    if zakres.get("zakupy_blacha", True):
+        cz.append("ZAKUPY = blacha")
+    po_kol = {}
+    for w in zakres.get("warunki") or []:
+        po_kol.setdefault(_txt(w.get("naglowek")), []).append(_txt(w.get("wartosc")) or "(puste)")
+    for k, v in po_kol.items():
+        cz.append("%s = %s" % (k, " LUB ".join(v)))
+    if zakres.get("pomin_magazyn", True):
+        cz.append("bez MAGAZYN")
+    return " + ".join(cz)
 
 
 def _mapa_naglowkow(hdr):
@@ -134,14 +195,19 @@ def _txt(v) -> str:
 
 
 def wczytaj(plik, kolumna_nazwy: str | None = None, kolumna_ilosci: str | None = None,
-            zrodlo: str = "referencja") -> Wykaz:
+            zrodlo: str = "referencja", zakres: dict | None = None) -> Wykaz:
     """kolumna_nazwy / kolumna_ilosci: tekst naglowka wskazany przez uzytkownika
     (None = wybor automatyczny wg mapowania).
 
     zrodlo: skad brac grubosc i gatunek - 'referencja' (domyslnie) albo 'kolumny'.
     Referencja niesie oba czlony zawsze i to ona idzie do LANTEKA; kolumny
     kontrolne istnieja tylko w wykazach zrobionych przez /wykaz-roboczy.
+
+    zakres: {'zakupy_blacha': bool, 'warunki': [{'kol','naglowek','wartosc'}],
+    'pomin_magazyn': bool} - patrz zakres_domyslny(). Wiersz bez referencji nigdy
+    nie idzie do LANTEKA (liczymy go tylko, zeby wylapac nieprzeliczone formuly).
     """
+    zakres = zakres or zakres_domyslny()
     p = sciezka(plik)
     wb = openpyxl.load_workbook(str(p), read_only=True, data_only=True)
     ws = wb.worksheets[0]
@@ -156,32 +222,71 @@ def wczytaj(plik, kolumna_nazwy: str | None = None, kolumna_ilosci: str | None =
     # kandydaci na kolumne referencji: kazda kolumna, ktorej naglowek zaczyna sie od 'nazwa'
     kandydaci = {naglowki[i]: i for k, i in poz.items()
                  if k.startswith("nazwa") and i in naglowki}
-    if kolumna_nazwy and kolumna_nazwy in kandydaci:
-        kol["nazwa"] = kandydaci[kolumna_nazwy]
-    if kolumna_ilosci:
-        for i, h in naglowki.items():
-            if h == kolumna_ilosci:
-                kol["ilosc"] = i
-                break
+    # kolumna wskazana przez czlowieka (lista z naglowkow albo wpisana): dowolny
+    # naglowek, bez wielkosci liter i kropek ('Anz.' = 'ANZ'), wygrywa lewa;
+    # gdy takiej nie ma - zostaje wybor automatyczny i mowimy o tym
+    kol_uwagi = []
+    for rola, wskazana in (("nazwa", kolumna_nazwy), ("ilosc", kolumna_ilosci)):
+        if not wskazana:
+            continue
+        traf = sorted(i for i, h in naglowki.items() if norm_naglowek(h) == norm_naglowek(wskazana))
+        if traf:
+            kol[rola] = traf[0]
+        else:
+            kol_uwagi.append("w wykazie nie ma kolumny '%s' - %s wybrana automatycznie (%s)"
+                             % (wskazana, "referencja" if rola == "nazwa" else "ilosc",
+                                naglowki.get(kol.get(rola), "brak")))
 
-    brak = [r for r in ("zakupy", "nazwa") if kol.get(r) is None]
+    zak_blacha = zakres.get("zakupy_blacha", True)
+    brak = [r for r in (("zakupy", "nazwa") if zak_blacha else ("nazwa",))
+            if kol.get(r) is None]
     if brak:
         wb.close()
         raise ValueError("w wykazie brak kolumn: %s (pierwsza zakladka '%s', "
                          "wiersz naglowka %d)" % (", ".join(brak), ws.title, nr_hdr))
-    i_zak, i_naz = kol["zakupy"], kol["nazwa"]
+    i_zak, i_naz = kol.get("zakupy"), kol["nazwa"]
+    warunki, zakres_uwagi = _warunki_po_kolumnach(zakres.get("warunki"), naglowki)
+    # MAGAZYN: kolumny o tych naglowkach, ale TYLKO na lewo od kolumny z referencja -
+    # na prawo bywaja kopie/duplikaty kolumn (decyzja uzytkownika)
+    i_mag = [i for i, h in naglowki.items()
+             if i < i_naz and norm_naglowek(h) in _MAGAZYN_KOL]
 
     def g(r, rola):
         i = kol.get(rola)
         return r[i] if i is not None and i < len(r) else None
 
+    def kom(r, i):
+        return r[i] if i is not None and i < len(r) else None
+
     pozycje, n = [], 0
+    pominiete, bez_ref, poza = [], set(), 0
     for nr, r in enumerate(rows, start=nr_hdr + 1):
         n += 1
-        z = _txt(r[i_zak] if i_zak < len(r) else None).lower()
-        if "blach" not in z:
+        if zak_blacha and "blach" not in _txt(kom(r, i_zak)).lower():
             continue
-        ref = _txt(r[i_naz] if i_naz < len(r) else None)
+        ref = _txt(kom(r, i_naz))
+        if warunki and not all(any(_rowne(kom(r, i), v) for v in wart)
+                               for i, wart in warunki.items()):
+            if ref:
+                poza += 1
+            continue
+        if not ref:
+            bez_ref.add(nr)
+            continue
+        # MAGAZYN: sam napis = caly element z magazynu -> nie wgrywamy;
+        # z liczba ('MAGAZYN 2szt', '2 SZT', '2 sztuki') = czesc z magazynu,
+        # ilosc pomniejszona -> wgrywamy, ale pozycja jest wyraznie oznaczona
+        magazyn_txt = ""
+        i_traf = next((i for i in i_mag
+                       if _MAGAZYN_SLOWO in _txt(kom(r, i)).lower()), None)
+        if i_traf is not None:
+            tekst = _txt(kom(r, i_traf))
+            if re.search(r"\d", tekst):
+                magazyn_txt = "%s: %s" % (naglowki[i_traf], tekst[:80])
+            elif zakres.get("pomin_magazyn", True):
+                pominiete.append({"wiersz": nr, "ref": ref, "powod": "%s: %s"
+                                  % (naglowki[i_traf], tekst[:80])})
+                continue
         rozb = rozbierz_referencje(ref)
         pozycje.append(Pozycja(
             wiersz=nr, ref=ref,
@@ -200,7 +305,7 @@ def wczytaj(plik, kolumna_nazwy: str | None = None, kolumna_ilosci: str | None =
             propozycja=_txt(g(r, "propozycja")),
             indeks=_txt(g(r, "index")),
             bezeichnung=_txt(g(r, "bezeichnung")),
-            ref_wykaz=ref, ref_dxf=ref,
+            ref_wykaz=ref, ref_dxf=ref, magazyn=magazyn_txt,
         ))
     wb.close()
 
@@ -208,13 +313,63 @@ def wczytaj(plik, kolumna_nazwy: str | None = None, kolumna_ilosci: str | None =
               kolumny=kol, kandydaci_nazwy=kandydaci, pozycje=pozycje,
               wierszy=n, blacha=len(pozycje),
               kolumna_nazwy=naglowki.get(i_naz, ""),
-              kolumna_ilosci=naglowki.get(kol.get("ilosc"), ""))
+              kolumna_ilosci=naglowki.get(kol.get("ilosc"), ""),
+              pominiete=pominiete, bez_referencji=len(bez_ref), poza_zakresem=poza,
+              zakres_opis=opis_zakresu(zakres), zakres_uwagi=kol_uwagi + zakres_uwagi)
 
     # czy puste referencje biora sie z nieprzeliczonej formuly?
-    if any(not x.ref for x in pozycje):
-        w.formuly_puste = _policz_formuly(p, nr_hdr, i_naz,
-                                          {x.wiersz for x in pozycje if not x.ref})
+    if bez_ref:
+        w.formuly_puste = _policz_formuly(p, nr_hdr, i_naz, bez_ref)
     return w
+
+
+_cache_kolumn = {}
+
+
+def kolumny_i_wartosci(plik, max_wartosci=80) -> dict:
+    """Do UI zakresu: naglowki pierwszej zakladki i wartosci kazdej kolumny
+    (bez wielkosci liter, z liczba wierszy). Kolumna z wiecej niz max_wartosci
+    roznymi wartosciami dostaje pusta liste - wtedy wartosc wpisuje sie recznie.
+    Wynik trzymamy w pamieci po (sciezka, data zmiany pliku)."""
+    p = sciezka(plik)
+    klucz = (str(p).lower(), p.stat().st_mtime)
+    if klucz in _cache_kolumn:
+        return _cache_kolumn[klucz]
+    wb = openpyxl.load_workbook(str(p), read_only=True, data_only=True)
+    ws = wb.worksheets[0]
+    nr_hdr = _wiersz_naglowka(ws)
+    rows = ws.iter_rows(min_row=nr_hdr, values_only=True)
+    hdr = next(rows)
+    naglowki = {i: _txt(h) for i, h in enumerate(hdr) if _txt(h)}
+    licz = {i: {} for i in naglowki}
+    for r in rows:
+        for i in naglowki:
+            if licz[i] is None or i >= len(r):
+                continue
+            v = _txt(r[i])
+            if not v:
+                continue
+            d = licz[i]
+            k = v.lower()
+            if k in d:
+                d[k][1] += 1
+            elif len(d) >= max_wartosci:
+                licz[i] = None                       # za duzo roznych - bez podpowiedzi
+            else:
+                d[k] = [v, 1]
+    wb.close()
+    dom = norm_naglowek(ZAKRES.get("domyslna_kolumna_warunku", "sprawdzenie"))
+    out = {"naglowki": [
+        {"kol": i, "naglowek": h,
+         "wartosci": [] if licz[i] is None else
+         [{"v": v, "n": n} for v, n in sorted(licz[i].values(), key=lambda x: -x[1])]}
+        for i, h in sorted(naglowki.items())],
+        "domyslna": next((i for i, h in sorted(naglowki.items())
+                          if norm_naglowek(h) == dom), None),
+        "wiersz_naglowka": nr_hdr}
+    _cache_kolumn.clear()                            # trzymamy tylko ostatni wykaz
+    _cache_kolumn[klucz] = out
+    return out
 
 
 def _policz_formuly(p, nr_hdr, i_naz, wiersze) -> int:
