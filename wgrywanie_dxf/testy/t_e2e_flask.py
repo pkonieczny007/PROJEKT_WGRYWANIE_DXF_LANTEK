@@ -29,7 +29,9 @@ c = app.test_client()
 r = c.post("/dxf/", data={"akcja": "propozycje", "numer": NUMER}, follow_redirects=True)
 print("propozycje:", r.status_code)
 with c.session_transaction() as s:
-    prop = s.get("propozycje") or {}
+    pid = s.get("prop_id")
+plik_prop = Path(os.environ["DATA_DIR"]) / "_propozycje" / ("%s.json" % pid)
+prop = json.loads(plik_prop.read_text(encoding="utf-8")) if pid else {}
 print("  folder zlecenia:", prop.get("folder"))
 print("  wykazow:", len(prop.get("wykazy", [])), "| folderow DXF:", len(prop.get("foldery_dxf", [])))
 if not prop.get("wykazy"):

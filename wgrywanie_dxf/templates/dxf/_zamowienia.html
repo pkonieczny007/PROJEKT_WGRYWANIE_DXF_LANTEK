@@ -1,0 +1,11 @@
+{# stan zamowien sprzedazy dla numeru - pierwsze renderowanie, potem odswieza JS #}
+{% if zam.blad and not zam.zamowienia %}
+  <span class="zle">LANTEK niedostepny: {{ zam.blad }}</span>
+{% elif not zam.zamowienia %}
+  <span class="zle">brak zamowien sprzedazy w LANTEKU dla {{ numer }}</span>
+  {% if zam.pobrano %}(lista z {{ zam.pobrano }}){% endif %}
+{% else %}
+  <span class="ok">w LANTEKU:
+  {% for z in zam.zamowienia %}{{ z.ordref }} ({{ z.linii }} linii, {{ z.stan }}, od {{ z.utworzone }}){% if not loop.last %}, {% endif %}{% endfor %}</span>
+  (lista z {{ zam.pobrano }})
+{% endif %}

@@ -54,10 +54,17 @@ siedzą w `.env` / `config.py`, więc da się ją przenieść na serwer.
 
 ## Przebieg pracy
 
-1. **Zlecenie** — wpisujesz `NN_XXXX` (np. `82_1129`), aplikacja proponuje wykaz roboczy
-   z Technologii i wszystkie foldery z plikami DXF (Technologia, `tmp\TMP_DXF_...`,
-   wyniki ekstraktora). Folder wybierasz sam, można kilka — przy tej samej nazwie pliku
-   wygrywa folder wskazany wyżej.
+1. **Zlecenie** — wpisujesz `NN_XXXX` (np. `82_1129`). Od razu (bez skanu) pojawia się
+   folder zlecenia w Technologii z podfolderami do kliknięcia oraz zamówienia sprzedaży
+   z LANTEKA dla tego numeru. Folder zlecenia można zmienić na dowolny — np. podfolder
+   rewizji `37_1731\DXF_37_1731-REWIZJA`; wtedy wykazy bierzemy z niego, a jego foldery DXF
+   są na liście najwyżej. „Zaproponuj wykaz i foldery" proponuje wykazy (z folderu i jego
+   podfolderów, robocze pierwsze) i wszystkie foldery z DXF (Technologia,
+   `tmp\TMP_DXF_...`, wyniki ekstraktora). Każda ścieżka to zwykłe pole: klik
+   w propozycję wpisuje ją do pola, można też wpisać własną. Folder DXF wybierasz sam,
+   można kilka — przy tej samej nazwie pliku wygrywa folder wskazany wyżej.
+   Pole OrdRef na bieżąco mówi, czy zamówienie już jest w LANTEKU i od której linii
+   dopiszemy nowe.
 2. **Kontrola przed wgraniem** — nic nie zapisuje. Raport `PRZED_*.html` + `.json`.
 3. **XML** — kopiuje pliki DXF tam, gdzie widzi je LANTEK, i składa `SheetParts_*.xml`.
 4. **Wgranie** — `XmlImporter.exe`, czekanie na log, log ląduje w folderze przebiegu.
@@ -112,6 +119,10 @@ identyczną marszrutę (`2D Cut`), więc realnie różnicuje je tylko gięcie.
 
 ## Pułapki, które już zapłaciliśmy
 
+- **Propozycje nie w ciasteczku sesji.** Lista wykazów i folderów potrafi przekroczyć
+  4 KB ciasteczka — przeglądarka po cichu je odrzuca. Trzymamy ją w
+  `data/_propozycje/<id>.json`, w sesji tylko `prop_id`.
+
 - **`LineNum` w zamówieniu** — klucz kolizji to `(OrdRef, LineNum)`, a kolizja
   **nadpisuje linię** (49 udokumentowanych przypadków). Numerację kontynuujemy po
   `max(LineNum)`, nigdy od 1.
@@ -154,6 +165,7 @@ services/powersync.py      XmlImporter.exe + odczyt logu
 services/lantek_db.py      baza LANTEKA — WYŁĄCZNIE SELECT
 services/raport.py         raporty HTML/JSON
 services/zlecenie.py       propozycje po numerze zlecenia, rejestr wgrań
+services/zamowienia.py     lista zamówień sprzedaży w pamięci (jak w FORMATKA+CZASY_PALENIA)
 testy/                     skrypty sprawdzające (uruchamiane ręcznie)
 ```
 
@@ -165,6 +177,7 @@ python testy/t_xml_generator.py      # nasz XML kontra XML makra
 python testy/t_ruty_giecie.py        # trafność przewidywania marszruty (baza)
 python testy/t_kontrola_e2e.py 82_1129
 python testy/t_e2e_flask.py 82_1129  # cały przebieg do XML, bez wgrywania
+python testy/t_formularz_start.py 37_1731   # podpowiedzi folderu/zamówień, własny folder
 ```
 
 ## Stan na 18.09.2026 - potwierdzone dzialanie

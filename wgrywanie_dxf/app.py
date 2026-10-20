@@ -21,6 +21,12 @@ def create_app():
     def index():
         return redirect(url_for("dxf.start"))
 
+    # lista zamowien sprzedazy pobiera sie w tle, zanim ktos wpisze numer
+    import threading
+    from services import zamowienia
+    threading.Thread(target=zamowienia.odswiez, args=(app.config["DB"],),
+                     daemon=True).start()
+
     return app
 
 

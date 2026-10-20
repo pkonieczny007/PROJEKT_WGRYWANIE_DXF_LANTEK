@@ -1,1 +1,6 @@
 do poprawy jest 2. Wykaz roboczy. gdy zaproponuje wykaz i foldery, nie moge wpisac niestandardowej sciezki. Chce zeby byly propozycje. ale gry nacisne propozycje wpisuje sie ona do okna sciezki. Gdy nie chce wybrac z propozycji. mam mozliwosc wpisania recznie sciezki. w 1. gdy wpisuje nr zlecenia np. 37_1731 dopiero w 2 podany jest znalezione w folderze: Znalezione w folderze \\QNAP-ENERGO\Technologia\2026\37_1731 chce zeby w 1 byla ta propozycja folderu. ale tez z mozliwoscia edycji niestandardowego folderu. teraz mam zlecenie REWIZJI i chce wpisać wykaz w folderze wewnatrz \\QNAP-ENERGO\Technologia\2026\37_1731\DXF_37_1731-REWIZJA. 
+
+3. Pliki DXF titak jest ok. 
+4. Tutaj chcialbym, zeby przy pierwszym jakimkolwiech uruchomieniu jakiejs funckji (np wpisanie zlecenia i nacisniecie zaproponuj wykaz i foldery w 1 )
+Pobierało dane, odswiezone o Zamówieniach sprzedaży 
+(jezeli nie masz oprawcowanego sposobu to w aplikacji do pobierania czasow \\QNAP-ENERGO\Projekty_INTEGRA\PLANOWANIE\AKTUALNE_PROJEKTY\PROJEKT_FORMATKA+CZASY_PALENIA mamy sposob sprawdzony) i zeby sie wyswietlala informacja czy jest takie zlecenie)

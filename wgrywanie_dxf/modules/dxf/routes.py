@@ -9,14 +9,16 @@ from __future__ import annotations
 
 import json
 import traceback
+import uuid
 from pathlib import Path
 
-from flask import (current_app, flash, redirect, render_template, request,
+from flask import (current_app, flash, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
 
 from services import dxf_check, kontrola, powersync, raport, ruty, wykaz as W
 from services import lantek_db as db
 from services import xml_sheetparts as X
+from services import zamowienia as ZAM
 from services import zlecenie as Z
 from services.marszruta import operacje as operacje_kodu
 from services.wspolne import sciezka
@@ -50,6 +52,46 @@ def _stan(nowy=None):
         except ValueError:
             return {}
     return {}
+
+
+def _prop(nowe=None):
+    """Propozycje po numerze zlecenia - w pliku, w sesji tylko identyfikator.
+    Lista wykazow i folderow potrafi przekroczyc 4 KB ciasteczka sesji."""
+    kat = sciezka(current_app.config["DATA_DIR"]) / "_propozycje"
+    if nowe is not None:
+        kat.mkdir(parents=True, exist_ok=True)
+        pid = uuid.uuid4().hex
+        (kat / ("%s.json" % pid)).write_text(json.dumps(nowe, ensure_ascii=False),
+                                             encoding="utf-8")
+        session["prop_id"] = pid
+        return nowe
+    pid = session.get("prop_id")
+    p = kat / ("%s.json" % pid) if pid else None
+    if p and p.is_file():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except ValueError:
+            pass
+    return None
+
+
+def _flash_zamowien(numer, ordref):
+    """Po odswiezeniu listy: czy zamowienie sprzedazy juz jest w LANTEKU."""
+    inf = ZAM.info(numer)
+    if inf["blad"]:
+        flash("Nie pobralem zamowien sprzedazy z LANTEKA: %s" % inf["blad"], "warning")
+        return
+    jest = next((z for z in inf["zamowienia"] if z["ordref"] == ordref), None)
+    if jest:
+        flash("Zamowienie sprzedazy %s JEST w LANTEKU (%d linii, %s) - nowe linie "
+              "dopiszemy od %d." % (ordref, jest["linii"], jest["stan"],
+                                    jest["max_linia"] + 1), "info")
+    elif inf["zamowienia"]:
+        flash("Zamowienia %s nie ma w LANTEKU. Sa inne dla tego zlecenia: %s."
+              % (ordref, ", ".join(z["ordref"] for z in inf["zamowienia"])), "warning")
+    else:
+        flash("W LANTEKU nie ma jeszcze zadnego zamowienia sprzedazy dla %s - "
+              "%s zostanie zalozone przy wgraniu." % (numer, ordref), "info")
 
 
 def _polacz():
@@ -89,7 +131,7 @@ def _kontroluj(st, cn):
 @bp.route("/", methods=["GET", "POST"])
 def start():
     cfg = current_app.config
-    prop = session.get("propozycje")
+    prop = _prop()
     st = _stan()
 
     if request.method == "POST":
@@ -101,15 +143,19 @@ def start():
 
         if akcja == "propozycje":
             numer = (request.form.get("numer") or "").strip()
+            ZAM.odswiez(cfg["DB"], wymus=True)
             prop = Z.propozycje(numer, cfg["KORZENIE_TECHNOLOGIA"], cfg["KORZENIE_DXF"],
-                                cfg["GLEBOKOSC_SKANU"])
-            session["propozycje"] = prop
+                                cfg["GLEBOKOSC_SKANU"],
+                                folder=request.form.get("folder_zlecenia"))
+            _prop(prop)
             session["numer"] = numer
             for u in prop["uwagi"]:
                 flash(u, "warning")
             if prop["wykazy"]:
                 flash("Znalazlem %d wykazow i %d folderow z DXF."
                       % (len(prop["wykazy"]), len(prop["foldery_dxf"])), "info")
+            if prop["ordref"]:
+                _flash_zamowien(numer, prop["ordref"])
             return redirect(url_for("dxf.start"))
 
         if akcja == "kontrola":
@@ -141,8 +187,27 @@ def start():
             })
             return redirect(url_for("dxf.przebieg"))
 
-    return render_template("dxf/start.html", prop=prop,
-                           numer=session.get("numer", ""), st=st)
+    numer = session.get("numer", "")
+    if numer:
+        ZAM.odswiez(cfg["DB"])
+    return render_template("dxf/start.html", prop=prop, numer=numer, st=st,
+                           zam=ZAM.info(numer) if numer else None)
+
+
+@bp.route("/api/zlecenie")
+def api_zlecenie():
+    """Na biezaco przy wpisywaniu numeru: folder zlecenia + zamowienia sprzedazy.
+    Pierwsze wywolanie pobiera swieza liste zamowien z LANTEKA."""
+    cfg = current_app.config
+    numer = (request.args.get("numer") or "").strip()
+    nn, xxxx = Z.rozbierz(numer)
+    if not nn:
+        return jsonify(ok=False, numer=numer)
+    ZAM.odswiez(cfg["DB"], wymus=bool(request.args.get("odswiez")))
+    out = Z.podpowiedz_folderu(numer, cfg["KORZENIE_TECHNOLOGIA"])
+    out.update(ZAM.info(numer))
+    out.update(ok=True, numer=numer, ordref=Z.domyslny_ordref(numer))
+    return jsonify(out)
 
 
 @bp.route("/przebieg", methods=["GET", "POST"])
