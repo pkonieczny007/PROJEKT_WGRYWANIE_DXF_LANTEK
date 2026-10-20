@@ -162,6 +162,21 @@ def max_linia(cn, ordref) -> int:
     return int(v or 0)
 
 
+def zamowienia_po_ref(cn, refy) -> dict:
+    """{PrdRef: [OrdRef, ...]} - w jakich zamowieniach sprzedazy element JUZ jest.
+    Wszystkie zamowienia, nie tylko wpisane: inny OrdRef to tez podwojenie."""
+    out = {}
+    cur = cn.cursor()
+    for cz in _paczki(refy):
+        ph = ",".join("?" * len(cz))
+        cur.execute("SELECT DISTINCT PrdRef, OrdRef FROM %s WHERE PrdRef IN (%s)"
+                    % (T_ZAM_LINIE, ph), *cz)
+        for d in _slowniki(cur):
+            out.setdefault((d["PrdRef"] or "").strip(), []).append(
+                (d["OrdRef"] or "").strip())
+    return {k: sorted(set(v)) for k, v in out.items()}
+
+
 def zamowienia_wg_wzorca(cn, wzorzec) -> list:
     cur = cn.cursor()
     cur.execute("SELECT OrdRef, CDate, OState FROM %s WHERE OrdRef LIKE ? "

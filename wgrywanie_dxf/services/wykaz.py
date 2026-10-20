@@ -44,6 +44,12 @@ class Pozycja:
     indeks: str = ""
     bezeichnung: str = ""
     uwagi: list = field(default_factory=list)
+    # ref_wykaz - jak stoi w wykazie; ref_dxf - nazwa pliku DXF (po rozbiciu LP na
+    # L i P, ale PRZED poprawka czlowieka); ref - co idzie do LANTEKA
+    ref_wykaz: str = ""
+    ref_dxf: str = ""
+    strona: str = ""              # 'L' / 'P' gdy pozycja powstala z wiersza LP
+    reczne: dict = field(default_factory=dict)   # {'grubosc': [bylo, jest], ...} zmiany czlowieka
 
     @property
     def kod(self) -> str:
@@ -194,6 +200,7 @@ def wczytaj(plik, kolumna_nazwy: str | None = None, kolumna_ilosci: str | None =
             propozycja=_txt(g(r, "propozycja")),
             indeks=_txt(g(r, "index")),
             bezeichnung=_txt(g(r, "bezeichnung")),
+            ref_wykaz=ref, ref_dxf=ref,
         ))
     wb.close()
 

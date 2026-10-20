@@ -57,6 +57,7 @@ class ElementXML:
     nazwa: str = ""              # PrdName (zwykle puste, jak w makrze)
     operacje: list = field(default_factory=list)   # [(OOrder, PrevOpr, Wrk, Opr, etykieta)]
     priorytet: int = 0
+    bez_linii: bool = False      # juz jest w zamowieniu - tylko aktualizacja elementu
 
 
 def _esc(v) -> str:
@@ -135,9 +136,11 @@ def zbuduj(elementy, ordref=None, zaloz_zamowienie=False, pierwsza_linia=1,
         linie += _polecenie("SALEORDERS", [_pole("OrdRef", ordref)])
     nr = int(pierwsza_linia)
     for e in elementy:
+        z_linia = bool(ordref) and not e.bez_linii
         linie += polecenia_elementu(e, ordref=ordref,
-                                    linia=(nr if ordref else None), udata8=udata8)
-        nr += 1
+                                    linia=(nr if z_linia else None), udata8=udata8)
+        if z_linia:
+            nr += 1
     linie.append("</DATAEX>")
     return NL.join(linie) + NL
 
@@ -157,7 +160,8 @@ def podsumowanie(elementy, ordref=None, zaloz_zamowienie=False) -> dict:
         "elementow": len(elementy),
         "z_geometria": sum(1 for e in elementy if e.dxf),
         "operacji": sum(len(e.operacje) for e in elementy),
-        "linii_zamowienia": len(elementy) if ordref else 0,
+        "linii_zamowienia": sum(1 for e in elementy if not e.bez_linii) if ordref else 0,
+        "bez_linii": sum(1 for e in elementy if e.bez_linii) if ordref else 0,
         "zaklada_zamowienie": bool(ordref and zaloz_zamowienie),
     }
 

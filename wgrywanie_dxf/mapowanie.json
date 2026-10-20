@@ -4,6 +4,25 @@
     "wrk": "UNI-KAT Fobia",
     "opr": "2D Cut"
   },
+  "_maszyny_opis": [
+    "Maszyna = centrum pierwszej operacji (2D Cut) w marszrucie elementu.",
+    "Domyslnie: grubosc >= plazma_od_grubosci -> plazma, ponizej laser (decyzja 20.10.2026: 16 mm na laser).",
+    "Regula ruty LANTEKA tego nie zapewnia (ruta P wymaga braku litery S w UData8, a S jest w S235/SL...),",
+    "dlatego gdy wybrana maszyna rozni sie od przewidzianej przez LANTEKA, poprawiamy marszrute drugim importem."
+  ],
+  "plazma_od_grubosci": 20,
+  "maszyny": {
+    "laser": {
+      "wrk": "UNI-KAT Fobia",
+      "opr": "2D Cut",
+      "nazwa": "laser"
+    },
+    "plazma": {
+      "wrk": "Stigal / Plasma 255HQC",
+      "opr": "2D Cut",
+      "nazwa": "plazma"
+    }
+  },
   "operacje": {
     "giecie": {
       "wrk": "Gietarka",

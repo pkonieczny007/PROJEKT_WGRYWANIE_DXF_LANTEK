@@ -24,7 +24,17 @@
       <div class="karta"><b>{{ k.licznik.STOP }}</b><span>zablokowanych</span></div>
       <div class="karta"><b>{{ st.do_wgrania|length }}</b><span>do wgrania</span></div>
       <div class="karta"><b>{{ k.bez_giecia_a_powinno }}</b><span>bez gietarki mimo G</span></div>
+      <div class="karta"><b>{{ k.do_poprawy_maszyny or 0 }}</b><span>maszyna poprawiana</span></div>
     </div>
+    {% set b = k.bilans or {} %}
+    {% if b %}
+      <p><b>Bilans:</b> wierszy blachy w wykazie {{ b.wierszy }}
+         {% if b.lp %}+ {{ b.lp }} drugich stron z wierszy LP{% endif %}
+         = <b>{{ b.oczekiwanych }}</b> elementow DXF oczekiwanych &middot;
+         pozycji po kontroli <b>{{ b.pozycji }}</b>
+         {% if b.w_duplikatach %}<span class="zle">(w tym {{ b.w_duplikatach }} wierszy zlaczonych jako duplikaty)</span>{% endif %}
+         {% if b.poprawionych_ref %}&middot; recznie zmienionych referencji {{ b.poprawionych_ref }}{% endif %}</p>
+    {% endif %}
     <p>kolumna referencji: <code>{{ k.kolumna_nazwy }}</code> &middot;
        ilosc: <code>{{ k.kolumna_ilosci }}</code> &middot;
        baza: {{ "tak" if k.baza_dostepna else "NIE" }} &middot;
@@ -36,13 +46,18 @@
       </table>
     {% endif %}
 
+    <form method="post" id="form-zmiany">
+    <input type="hidden" name="akcja" value="zmiany">
+    <input type="hidden" name="zmiany_json" id="zmiany_json">
     {% if k.materialy %}
-      <h3 style="font-size:15px;margin:18px 0 4px">Materialy &mdash; co na co idzie (grubosc + gatunek)</h3>
+      <h3 style="font-size:15px;margin:18px 0 4px">Materialy &mdash; co na co idzie (grubosc + gatunek) i na jakiej maszynie</h3>
       <p class="mini">grubosc i gatunek czytane z {{ "referencji" if k.zrodlo_wymiarow == "referencja" else "kolumn wykazu" }};
-         sztuki = ilosc, ktora idzie do zamowienia; MatRef musi istniec w kartotece LANTEKA</p>
+         sztuki = ilosc, ktora idzie do zamowienia; MatRef musi istniec w kartotece LANTEKA.
+         Maszyna domyslnie: od 20 mm plazma, ponizej laser &mdash; zmien dla calej grupy tutaj,
+         a dla pojedynczej pozycji w podgladzie ponizej.</p>
       {% set suma = namespace(poz=0, szt=0) %}
       <table>
-        <tr><th>grubosc [mm]</th><th>gatunek</th><th>MatRef w LANTEKU</th><th>pozycji</th><th>sztuk</th><th>jest w kartotece</th></tr>
+        <tr><th>grubosc [mm]</th><th>gatunek</th><th>MatRef w LANTEKU</th><th>pozycji</th><th>sztuk</th><th>jest w kartotece</th><th>maszyna</th></tr>
         {% for m in k.materialy %}
           {% set suma.poz = suma.poz + (m.pozycji or 0) %}
           {% set suma.szt = suma.szt + (m.sztuk or 0) %}
@@ -52,33 +67,116 @@
             <td class="n">{{ m.pozycji }}</td>
             <td class="n">{{ "%g"|format(m.sztuk) if m.sztuk is defined and m.sztuk is not none else "-" }}</td>
             <td>{{ "tak" if m.w_kartotece else ("NIE MA" if m.w_kartotece is false else "?") }}</td>
+            <td>
+              {% if m.klucz %}
+              <select class="zm-grupa" data-klucz="{{ m.klucz }}" style="width:auto">
+                {% for kl, mm in maszyny.items() %}
+                  <option value="{{ kl }}" {% if kl == m.maszyna %}selected{% endif %}>{{ mm.nazwa }}{% if kl == m.maszyna_domyslna %} (domyslnie){% endif %}</option>
+                {% endfor %}
+              </select>
+              {% if m.wyjatkow %}<span class="mini">+{{ m.wyjatkow }} wyjatkow</span>{% endif %}
+              {% endif %}
+            </td>
           </tr>
         {% endfor %}
         <tr style="font-weight:700">
           <td>SUMA</td><td></td><td>{{ k.materialy|length }} grup</td>
-          <td class="n">{{ suma.poz }}</td><td class="n">{{ "%g"|format(suma.szt) }}</td><td></td>
+          <td class="n">{{ suma.poz }}</td><td class="n">{{ "%g"|format(suma.szt) }}</td><td></td><td></td>
         </tr>
       </table>
     {% endif %}
 
     {% if st.podglad %}
-      <details style="margin-top:14px">
+      <details style="margin-top:14px" {% if st.poprawki %}open{% endif %}>
         <summary style="cursor:pointer;font-weight:600">
-          Podglad pozycji ({{ st.podglad|length }} z {{ k.wszystkich }}) &mdash; co pojdzie do LANTEKA
+          Podglad pozycji ({{ st.podglad|length }} z {{ k.wszystkich }}) &mdash; co pojdzie do LANTEKA;
+          tu zmienisz referencje i maszyne pojedynczej pozycji
         </summary>
-        <p class="mini">Pelna lista jest w raporcie HTML ponizej.</p>
-        <table>
-          <tr><th></th><th>w.</th><th>referencja</th><th>gatunek &rarr; MatRef</th>
-              <th>grubosc</th><th>ilosc</th><th>kod</th><th>ruta</th>
-              <th>marszruta</th><th>DXF</th><th>uwagi</th></tr>
+        <p class="mini">Referencje mozna poprawic jak w Lantek Expert przy imporcie &mdash; po wpisaniu
+           sprawdzam od razu, czy taka juz jest w bazie. Plik DXF zostaje ten sam, wejdzie pod nowa nazwa.
+           Pelna lista jest tez w raporcie HTML ponizej.</p>
+        <div class="filtry" id="filtry">
+          <input type="search" id="f-tekst" placeholder="szukaj: referencja, rysunek, uwaga, MatRef..."
+                 autocomplete="off" style="flex:2;min-width:240px">
+          <select data-pole="poziom"><option value="">poziom: wszystkie</option></select>
+          <select data-pole="grubosc"><option value="">grubosc: wszystkie</option></select>
+          <select data-pole="gatunek"><option value="">gatunek: wszystkie</option></select>
+          <select data-pole="grgat"><option value="">grubosc_gatunek: wszystkie</option></select>
+          <select data-pole="maszyna"><option value="">maszyna: wszystkie</option></select>
+          <select data-pole="lantek"><option value="">LANTEK sam: wszystkie</option></select>
+          <select data-pole="kod"><option value="">kod: wszystkie</option></select>
+          <select data-pole="dxf"><option value="">DXF: wszystkie</option></select>
+          <select data-pole="tylko">
+            <option value="">pokaz: wszystkie</option>
+            <option value="poprawka">z poprawka marszruty</option>
+            <option value="strona">z wierszy LP</option>
+            <option value="zmieniona">ze zmieniona referencja</option>
+            <option value="wbazie">juz w bazie LANTEKA</option>
+            <option value="wyjatek">z wyjatkiem maszyny</option>
+            <option value="reczna">ze zmiana reczna (dowolna)</option>
+          </select>
+          <button type="button" id="f-wyczysc">wyczysc</button>
+        </div>
+        <div class="rzad" style="margin-top:6px">
+          <span class="mini" id="f-licznik"></span>
+          <span class="mini">&middot; widocznym ustaw maszyne:</span>
+          <select id="f-maszyna" style="width:auto;font-size:12.5px;padding:3px 6px">
+            <option value="">jak grupa</option>
+            {% for kl, mm in maszyny.items() %}<option value="{{ kl }}">{{ mm.nazwa }}</option>{% endfor %}
+          </select>
+          <button type="button" id="f-ustaw" style="padding:3px 10px;font-size:12.5px">ustaw</button>
+        </div>
+        <table id="t-podglad">
+          <tr><th></th><th>w.</th><th>referencja (do LANTEKA)</th><th>gatunek &rarr; MatRef</th>
+              <th>grubosc</th><th>ilosc</th><th>kod</th><th>maszyna</th><th>LANTEK sam</th>
+              <th>DXF</th><th>uwagi</th></tr>
+          {% macro liczba(v) %}{{ '%g'|format(v) if v is number else (v or '') }}{% endmacro %}
           {% for p in st.podglad %}
-            <tr class="{{ p.poziom }}">
-              <td>{{ p.poziom }}</td><td class="n">{{ p.wiersz }}</td>
-              <td>{{ p.ref }}</td>
-              <td>{{ p.gatunek or "-" }} &rarr; {{ p.material or "?" }}</td>
-              <td class="n">{{ p.grubosc }}</td><td class="n">{{ p.ilosc }}</td>
-              <td>{{ p.kod or "-" }}</td><td>{{ p.ruta or "-" }}</td>
-              <td>{{ p.marszruta or "-" }}</td>
+            {% set r = p.reczne or {} %}
+            {% set g_wyk = r.grubosc[0] if r.grubosc else p.grubosc %}
+            {% set il_wyk = r.ilosc[0] if r.ilosc else p.ilosc %}
+            {% set mat_auto = r.material[0] if r.material else p.material %}
+            <tr class="{{ p.poziom }}" data-poziom="{{ p.poziom }}"
+                data-grubosc="{{ liczba(p.grubosc) }}"
+                data-gatunek="{{ p.gatunek or '' }}" data-maszyna="{{ p.maszyna or '' }}"
+                data-grgat="{{ liczba(p.grubosc) }}_{{ p.gatunek or '' }}"
+                data-lantek="{{ p.maszyna_lantek or '?' }}" data-kod="{{ p.kod or '(pusty)' }}"
+                data-dxf="{{ p.stan_dxf or '-' }}"
+                data-tylko="{{ 'poprawka ' if p.popraw_marszrute }}{{ 'strona ' if p.strona }}{{ 'zmieniona ' if p.ref != p.ref_dxf }}{{ 'wbazie ' if p.w_bazie }}{{ 'wyjatek ' if p.maszyna_zrodlo == 'pozycja' }}{{ 'reczna' if (r or p.ruta_reczna or p.maszyna_zrodlo == 'pozycja' or p.ref != p.ref_dxf) }}">
+              <td>{{ p.poziom }}</td>
+              <td class="n">{{ p.wiersz }}{% if p.strona %} <b>{{ p.strona }}</b>{% endif %}</td>
+              <td style="min-width:300px">
+                <input type="text" class="zm-ref pole-m" data-ref-dxf="{{ p.ref_dxf }}" data-orig="{{ p.ref_dxf }}" value="{{ p.ref }}"
+                       autocomplete="off" style="font-size:12.5px;padding:3px 6px">
+                <div class="mini ref-status">{% if p.ref != p.ref_dxf %}plik: {{ p.ref_dxf }}.dxf{% endif %}
+                  {% if p.w_bazie %}<span class="zle">juz jest w bazie</span>{% endif %}</div>
+              </td>
+              <td>{{ p.gatunek or "-" }} &rarr;
+                <select class="zm-mat pole-m" data-ref-dxf="{{ p.ref_dxf }}" data-orig="{{ mat_auto or '' }}">
+                  <option value="{{ p.material or '' }}" selected>{{ p.material or "?" }}</option>
+                </select>
+                {% if r.material %}<div class="mini">bylo: {{ mat_auto or "(brak)" }}</div>{% endif %}</td>
+              <td><input type="text" class="zm-grub pole-m" data-ref-dxf="{{ p.ref_dxf }}"
+                         data-orig="{{ liczba(g_wyk) }}" value="{{ liczba(p.grubosc) }}" size="4" autocomplete="off">
+                {% if r.grubosc %}<div class="mini">bylo: {{ liczba(g_wyk) }}</div>{% endif %}</td>
+              <td><input type="text" class="zm-il pole-m" data-ref-dxf="{{ p.ref_dxf }}"
+                         data-orig="{{ liczba(il_wyk) }}" value="{{ liczba(p.ilosc) }}" size="4" autocomplete="off">
+                {% if r.ilosc %}<div class="mini">bylo: {{ liczba(il_wyk) }}</div>{% endif %}</td>
+              <td>{{ p.kod or "-" }}</td>
+              <td>
+                <select class="zm-maszyna pole-m" data-ref-dxf="{{ p.ref_dxf }}" data-orig="">
+                  <option value="">jak grupa</option>
+                  {% for kl, mm in maszyny.items() %}
+                    <option value="{{ kl }}" {% if p.maszyna_zrodlo == "pozycja" and p.maszyna == kl %}selected{% endif %}>{{ mm.nazwa }}</option>
+                  {% endfor %}
+                </select>
+                <select class="zm-ruta pole-m" data-ref-dxf="{{ p.ref_dxf }}" data-orig="" title="ruta z INTEGRY - wyznacza marszrute i maszyne">
+                  <option value="">ruta: jak LANTEK ({{ p.ruta or "?" }})</option>
+                  {% if p.ruta_reczna %}<option value="{{ p.ruta_reczna }}" selected>{{ p.ruta_reczna }}</option>{% endif %}
+                </select>
+                <div class="mini">{{ p.maszyna or "?" }}{% if p.ruta_reczna %} &middot; ruta {{ p.ruta_reczna }}{% endif %}{% if p.popraw_marszrute %} &middot; <span class="zle">poprawka</span>{% endif %}</div>
+              </td>
+              <td>{{ p.maszyna_lantek or "?" }}<div class="mini">{{ p.ruta or "-" }}</div></td>
               <td>{{ p.stan_dxf or "-" }}</td>
               <td>{{ p.uwagi|join("; ") }}</td>
             </tr>
@@ -86,6 +184,206 @@
         </table>
       </details>
     {% endif %}
+    {% if k.materialy or st.podglad %}
+      <div class="rzad">
+        <button type="submit">Zastosuj zmiany (maszyna, referencje) i powtorz kontrole</button>
+        <a href="{{ url_for('dxf.eksport_xlsx') }}"><button type="button"
+           title="Pozycje + Materialy, stan po ostatniej kontroli (niezapisane zmiany nie wchodza)">Eksport Excel</button></a>
+        <span class="mini" id="zm-licznik"></span>
+      </div>
+    {% endif %}
+    </form>
+    <script>
+    (function () {
+      var f = document.getElementById("form-zmiany");
+      if (!f) return;
+      // pole zmienione recznie = wartosc inna niz z wykazu / z automatu (data-orig)
+      var POLA = {"zm-ref": "ref", "zm-maszyna": "maszyna", "zm-mat": "material",
+                  "zm-ruta": "ruta", "zm-grub": "grubosc", "zm-il": "ilosc"};
+      function klasaPola(el) {
+        for (var k in POLA) if (el.classList.contains(k)) return k;
+        return null;
+      }
+      function zmienione(el) {
+        var v = (el.value || "").trim(), o = (el.dataset.orig || "").trim();
+        if (el.classList.contains("zm-grub") || el.classList.contains("zm-il")) {
+          var a = parseFloat(v.replace(",", ".")), b = parseFloat(o.replace(",", "."));
+          return v !== "" && !(a === b);
+        }
+        return v !== "" && v !== o;
+      }
+      function podswietl(el) {
+        el.classList.toggle("reczna", zmienione(el));
+        var td = el.closest("td");
+        if (td) td.classList.toggle("reczna", !!td.querySelector(".pole-m.reczna"));
+      }
+      function zbierz() {
+        var grupy = {}, pozycje = {}, zmian = 0;
+        f.querySelectorAll("select.zm-grupa").forEach(function (s) { grupy[s.dataset.klucz] = s.value; });
+        f.querySelectorAll(".pole-m").forEach(function (el) {
+          if (!zmienione(el)) return;
+          var k = el.dataset.refDxf;
+          (pozycje[k] = pozycje[k] || {})[POLA[klasaPola(el)]] = el.value.trim();
+          zmian++;
+        });
+        return {grupy: grupy, pozycje: pozycje, zmian: zmian};
+      }
+      // listy z INTEGRY wczytywane dopiero przy pierwszym kliknieciu w pole
+      var MATREFY = {{ (k.matrefy or [])|tojson }};
+      var RUTY = {{ (k.ruty or [])|tojson }};
+      function wypelnij(s) {
+        if (s.dataset.wypelniona) return;
+        s.dataset.wypelniona = "1";
+        var biez = s.value;
+        if (s.classList.contains("zm-mat")) {
+          s.innerHTML = "";
+          MATREFY.forEach(function (m) {
+            var o = document.createElement("option");
+            o.value = m; o.textContent = m + (m === s.dataset.orig ? " (z wykazu)" : "");
+            s.appendChild(o);
+          });
+          if (biez && MATREFY.indexOf(biez) < 0) {
+            var x = document.createElement("option"); x.value = biez; x.textContent = biez + " (NIE MA w INTEGRZE)";
+            s.insertBefore(x, s.firstChild);
+          }
+        } else {
+          while (s.options.length > 1) s.remove(1);
+          RUTY.forEach(function (r) {
+            var o = document.createElement("option");
+            o.value = r.ref; o.textContent = r.ref + " - " + r.opis; s.appendChild(o);
+          });
+        }
+        s.value = biez;
+      }
+      f.addEventListener("focusin", function (e) {
+        if (e.target.matches("select.zm-mat, select.zm-ruta")) wypelnij(e.target);
+      });
+      f.addEventListener("mousedown", function (e) {
+        if (e.target.matches("select.zm-mat, select.zm-ruta")) wypelnij(e.target);
+      });
+      f.addEventListener("input", function (e) { if (e.target.classList.contains("pole-m")) podswietl(e.target); });
+      f.addEventListener("change", function (e) { if (e.target.classList.contains("pole-m")) podswietl(e.target); });
+      f.querySelectorAll(".pole-m").forEach(podswietl);
+      f.addEventListener("submit", function () {
+        var z = zbierz();
+        document.getElementById("zmiany_json").value = JSON.stringify({grupy: z.grupy, pozycje: z.pozycje});
+      });
+      f.addEventListener("change", function (e) {
+        if (e.target.closest("#filtry") || e.target.id === "f-maszyna") return;
+        document.getElementById("zm-licznik").textContent =
+          "zmian przy pozycjach: " + zbierz().zmian + " - kliknij, zeby weszly";
+      });
+
+      // ---- filtrowanie podgladu (tylko w przegladarce; ukryte wiersze dalej
+      //      ida do zapisu zmian)
+      var tab = document.getElementById("t-podglad");
+      if (tab) {
+        var wiersze = Array.prototype.slice.call(tab.querySelectorAll("tr[data-poziom]"));
+        var selekty = Array.prototype.slice.call(document.querySelectorAll("#filtry select[data-pole]"));
+        var tekst = document.getElementById("f-tekst");
+        // opcje list z danych; liczby (grubosc) sortowane numerycznie
+        selekty.forEach(function (s) {
+          var pole = s.dataset.pole;
+          if (pole === "tylko") return;
+          var ile = {}, szt = {};
+          wiersze.forEach(function (w) {
+            var v = w.dataset[pole] || "", il = w.querySelector("input.zm-il");
+            ile[v] = (ile[v] || 0) + 1;
+            szt[v] = (szt[v] || 0) + (parseFloat(((il && il.value) || "0").replace(",", ".")) || 0);
+          });
+          Object.keys(ile).sort(function (a, b) {
+            var x = parseFloat(a), y = parseFloat(b);
+            return (!isNaN(x) && !isNaN(y) && x !== y) ? x - y : a.localeCompare(b);
+          }).forEach(function (v) {
+            var o = document.createElement("option");
+            o.value = v;
+            o.textContent = (v || "(puste)") + " (" + ile[v] + " poz., " +
+                            (Math.round(szt[v] * 100) / 100) + " szt.)";
+            s.appendChild(o);
+          });
+        });
+        function szukany(w) {
+          var inp = w.querySelector("input.zm-ref");
+          return (w.textContent + " " + (inp ? inp.value : "")).toLowerCase();
+        }
+        function filtruj() {
+          var t = tekst.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+          var widac = 0, sztuk = 0;
+          wiersze.forEach(function (w) {
+            var ok = selekty.every(function (s) {
+              if (!s.value) return true;
+              if (s.dataset.pole === "tylko") return (w.dataset.tylko || "").indexOf(s.value) >= 0;
+              return w.dataset[s.dataset.pole] === s.value;
+            });
+            if (ok && t.length) {
+              var tx = szukany(w);
+              ok = t.every(function (slowo) { return tx.indexOf(slowo) >= 0; });
+            }
+            w.style.display = ok ? "" : "none";
+            if (ok) {
+              widac++;
+              var il = w.querySelector("input.zm-il");
+              sztuk += parseFloat(((il && il.value) || "0").replace(",", ".")) || 0;
+            }
+          });
+          document.getElementById("f-licznik").innerHTML =
+            "pokazano <b>" + widac + "</b> z " + wiersze.length + " pozycji &middot; sztuk razem <b>" +
+            (Math.round(sztuk * 100) / 100) + "</b>";
+        }
+        f.addEventListener("input", function (e) {
+          if (e.target.classList.contains("zm-il")) { clearTimeout(zegar); zegar = setTimeout(filtruj, 300); }
+        });
+        var zegar;
+        tekst.addEventListener("input", function () { clearTimeout(zegar); zegar = setTimeout(filtruj, 150); });
+        tekst.addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });
+        selekty.forEach(function (s) { s.addEventListener("change", filtruj); });
+        document.getElementById("f-wyczysc").addEventListener("click", function () {
+          tekst.value = ""; selekty.forEach(function (s) { s.value = ""; }); filtruj();
+        });
+        // maszyna wybrana przy pozycji od razu widoczna w filtrze 'maszyna'
+        tab.addEventListener("change", function (e) {
+          if (!e.target.classList.contains("zm-maszyna")) return;
+          var w = e.target.closest("tr");
+          if (!w.dataset.maszynaPierwotna) w.dataset.maszynaPierwotna = w.dataset.maszyna;
+          w.dataset.maszyna = e.target.value || w.dataset.maszynaPierwotna;
+        });
+        document.getElementById("f-ustaw").addEventListener("click", function () {
+          var v = document.getElementById("f-maszyna").value, ile = 0;
+          wiersze.forEach(function (w) {
+            if (w.style.display === "none") return;
+            var s = w.querySelector("select.zm-maszyna");
+            if (s) { s.value = v; s.dispatchEvent(new Event("change", {bubbles: true})); ile++; }
+          });
+          document.getElementById("zm-licznik").textContent =
+            "ustawiono " + ile + " widocznym pozycjom; zmian razem: " + zbierz().zmian +
+            " - kliknij 'Zastosuj', zeby weszly";
+        });
+        filtruj();
+      }
+      // po wpisaniu referencji: czy taka juz jest w LANTEKU
+      var API = "{{ url_for('dxf.api_ref') }}";
+      f.querySelectorAll("input.zm-ref").forEach(function (i) {
+        i.addEventListener("change", function () {
+          var st = i.parentNode.querySelector(".ref-status"), r = i.value.trim();
+          if (!r || r === i.dataset.refDxf) { st.textContent = ""; return; }
+          st.textContent = "sprawdzam...";
+          fetch(API + "?ref=" + encodeURIComponent(r)).then(function (x) { return x.json(); }).then(function (d) {
+            var t = [];
+            if (d.za_dluga) t.push("za dluga: " + d.dlugosc + " znakow (limit 40)");
+            if (d.znaki) t.push("znak spoza windows-1250");
+            if (d.w_bazie) t.push("JUZ JEST w bazie (" + (d.material || "") + ", " + (d.grubosc || "") + " mm, od " + (d.zalozony || "?") + ")");
+            if (d.w_zamowieniach && d.w_zamowieniach.length) t.push("w zamowieniach: " + d.w_zamowieniach.join(", "));
+            if (d.blad) t.push("baza niedostepna");
+            st.innerHTML = "";
+            var s = document.createElement("span");
+            s.className = t.length ? "zle" : "ok";
+            s.textContent = t.length ? t.join(" | ") : "wolna - nie ma jej w bazie";
+            st.appendChild(s);
+          }).catch(function () { st.textContent = "nie udalo sie sprawdzic"; });
+        });
+      });
+    })();
+    </script>
   {% else %}
     <p>Kontrola sprawdza wykaz, pliki DXF i baze LANTEKA. Nic nie zapisuje do bazy.</p>
   {% endif %}
@@ -102,17 +400,34 @@
     <p>elementow {{ x.podsumowanie.elementow }} &middot;
        z geometria {{ x.podsumowanie.z_geometria }} &middot;
        linii zamowienia {{ x.podsumowanie.linii_zamowienia }} &middot;
+       {% if x.podsumowanie.bez_linii %}bez linii (juz w zamowieniu) {{ x.podsumowanie.bez_linii }} &middot; {% endif %}
        {{ "zaklada zamowienie" if x.podsumowanie.zaklada_zamowienie else "dopina do istniejacego" }}</p>
+    {% if x.podwojenie %}
+      <div class="werdykt w-STOP">PODWOJENIE: {{ x.podwojonych }} elementow, ktore juz sa
+        w zamowieniach ({{ x.zamowienia_powtorek|join(", ") }}), dostanie nowe linie -
+        ilosci sie podwoja.</div>
+    {% endif %}
     <p>skopiowano {{ x.skopiowanych_dxf }} plikow DXF do <code>{{ x.katalog_dxf }}</code></p>
     {% if x.xml_marszruta %}
-      <p>poprawka marszruty dla {{ x.marszrut_do_poprawy }} pozycji:
-         <code>{{ x.xml_marszruta }}</code> (wgrywana osobno, po imporcie glownym)</p>
+      <p>poprawka marszruty dla {{ x.marszrut_do_poprawy }} pozycji
+         {% if x.marszrut_maszyna %}(w tym {{ x.marszrut_maszyna }} z powodu maszyny){% endif %}:
+         <code>{{ x.xml_marszruta }}</code> &mdash; wgra sie <b>automatycznie zaraz po imporcie glownym</b></p>
     {% endif %}
   {% else %}
     <p>Kopiuje pliki DXF tam, gdzie widzi je LANTEK, i sklada plik XML.
        W polu UData8 ladauje referencja - to ona wlacza regule marszruty.</p>
   {% endif %}
+  {% set powt = (st.do_wgrania or [])|selectattr("w_zamowieniach")|list %}
+  {% if powt %}
+    <p><b>{{ powt|length }} elementow juz jest w zamowieniach sprzedazy</b>
+       ({{ powt|map(attribute="w_zamowieniach")|sum(start=[])|unique|join(", ") }}).
+       Domyslnie wejda <b>bez linii zamowienia</b> - LANTEK tylko zaktualizuje element.</p>
+  {% endif %}
   <form method="post" class="rzad">
+    {% if powt and st.ordref %}
+      <label class="ch" style="color:var(--cz)"><input type="checkbox" name="podwojenie">
+        dopisz je tez do zamowienia {{ st.ordref }} &mdash; <b>podwojenie ilosci</b></label>
+    {% endif %}
     <button name="akcja" value="xml" {% if not st.do_wgrania %}disabled{% endif %}>
       {{ "Zbuduj XML ponownie" if x else "Zbuduj XML" }}</button>
   </form>
@@ -123,16 +438,61 @@
   {% if wg %}
     <div class="werdykt w-{{ 'OK' if wg.udany else 'STOP' }}">{{ wg.podsumowanie }}</div>
     {% if wg.log %}<p>log importera: <code>{{ wg.log }}</code></p>{% endif %}
+    {% if wg.marszruta %}
+      <p>poprawka marszruty ({{ wg.marszruta.pozycji }} pozycji):
+         <b class="{{ 'ok' if wg.marszruta.udany else 'zle' }}">{{ wg.marszruta.podsumowanie }}</b></p>
+    {% endif %}
+    {% if wg.rejestr_zrodel %}
+      <p>rejestr zrodel DXF: <code>{{ wg.rejestr_zrodel.plik }}</code>
+         {% if wg.rejestr_zrodel.ok %}&mdash; dopisane{% else %}<span class="zle">&mdash; NIE zapisany:
+         {{ wg.rejestr_zrodel.blad }}{% if wg.rejestr_zrodel.oczekuje %} (czeka w kolejce: {{ wg.rejestr_zrodel.oczekuje }}){% endif %}</span>{% endif %}</p>
+    {% endif %}
   {% else %}
     <p><b>To jedyny krok, ktory zapisuje do bazy LANTEKA.</b>
-       Tuz przed wyslaniem sprawdzamy jeszcze raz, czy zadna pozycja nie jest juz
-       linia tego zamowienia - powtorka zawyzylaby ilosci.</p>
+       Tuz przed wyslaniem sprawdzamy jeszcze raz baze i rejestr wgran - ponowne
+       wgranie trzeba swiadomie potwierdzic.</p>
   {% endif %}
-  <form method="post" class="rzad">
+  {% set ponowne = historia or (x and x.powtorek) or wg %}
+  {% if x and (ponowne or x.podwojenie) %}
+    <div class="werdykt w-STOP" style="font-weight:400">
+      <b>To bedzie PONOWNE wgranie{% if x.podwojenie %} Z PODWOJENIEM ILOSCI{% endif %}.</b>
+      <ul style="margin:6px 0 0 18px;padding:0">
+        {% if x.powtorek %}
+          <li>{{ x.powtorek }} elementow juz jest w zamowieniach {{ x.zamowienia_powtorek|join(", ") }}
+            &mdash; {% if x.podwojenie %}<b>dostana nowe linie ({{ x.podwojonych }})</b>
+            {% else %}wejda bez linii zamowienia (aktualizacja elementu){% endif %}</li>
+        {% endif %}
+        {% for h in historia[:5] %}
+          <li>wgrane {{ (h.czas or "?")|replace("T", " ") }} &middot; zlecenie {{ h.zlecenie }}
+            &middot; zamowienie {{ h.ordref or "brak" }} &middot; {{ h.elementow }} elementow
+            {% if h.wspolnych is not none %}({{ h.wspolnych }} wspolnych z obecnym){% endif %}
+            {% if h.bledow %}&middot; bledow {{ h.bledow }}{% endif %}
+            {% if h.ponowne %}&middot; ponowne{% endif %}{% if h.podwojenie %} z podwojeniem{% endif %}</li>
+        {% endfor %}
+        {% if historia|length > 5 %}<li>... i {{ historia|length - 5 }} wczesniejszych</li>{% endif %}
+      </ul>
+    </div>
+  {% endif %}
+  <form method="post" class="rzad" id="form-wgraj">
+    <input type="hidden" name="akcja" value="wgraj">
     <label class="ch"><input type="checkbox" name="potwierdzam"> potwierdzam wgranie</label>
-    <button class="groza" name="akcja" value="wgraj" {% if not x %}disabled{% endif %}>
+    {% if x and (ponowne or x.podwojenie) %}
+      <label class="ch" style="color:var(--cz)"><input type="checkbox" name="ponownie">
+        wgrywam ponownie swiadomie</label>
+      <label class="ch">wpisz <code>{{ haslo }}</code>:
+        <input type="text" name="haslo" autocomplete="off" style="width:200px;display:inline-block"></label>
+    {% endif %}
+    <button class="groza" type="submit" {% if not x %}disabled{% endif %}>
       Wgraj do LANTEKA</button>
   </form>
+  <script>
+    // po kliknieciu przycisk gasnie - drugie klikniecie nie wysle importu
+    document.getElementById("form-wgraj").addEventListener("submit", function (e) {
+      var b = this.querySelector("button[type=submit]");
+      if (b.disabled) { e.preventDefault(); return; }
+      setTimeout(function () { b.disabled = true; b.textContent = "Wgrywam... nie zamykaj strony"; }, 0);
+    });
+  </script>
 </div>
 
 <div class="krok">

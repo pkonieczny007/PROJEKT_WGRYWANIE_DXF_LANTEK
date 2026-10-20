@@ -232,3 +232,27 @@ def czytaj_rejestr(plik_rejestru, numer=None) -> list:
         if numer is None or d.get("zlecenie") == numer:
             out.append(d)
     return out
+
+
+def historia_wgran(plik_rejestru, numer, refy=()) -> list:
+    """Wczesniejsze wgrania, ktore dotyczyly tych samych elementow.
+
+    Wpis z lista 'refy' pasuje, gdy ma choc jeden wspolny element (lapie tez
+    inny numer zlecenia i inny OrdRef). Starsze wpisy bez 'refy' - po numerze.
+    Najnowsze pierwsze, bez samej listy refy (bywa dluga)."""
+    refy = set(refy)
+    out = []
+    for d in czytaj_rejestr(plik_rejestru):
+        if d.get("refy"):
+            wspolnych = len(refy & set(d["refy"]))
+            if not wspolnych:
+                continue
+        elif numer and d.get("zlecenie") == numer:
+            wspolnych = None
+        else:
+            continue
+        w = {k: v for k, v in d.items() if k != "refy"}
+        w["wspolnych"] = wspolnych
+        out.append(w)
+    out.sort(key=lambda d: d.get("czas", ""), reverse=True)
+    return out

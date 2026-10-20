@@ -1,0 +1,199 @@
+{
+  "_opis": "Jedno miejsce na stale biznesowe. Zmiana tutaj NIE wymaga zmiany kodu.",
+  "laser": {
+    "wrk": "UNI-KAT Fobia",
+    "opr": "2D Cut"
+  },
+  "operacje": {
+    "giecie": {
+      "wrk": "Gietarka",
+      "opr": "Giecie"
+    },
+    "spawanie": {
+      "wrk": "Spawalnia",
+      "opr": "Spawanie"
+    },
+    "ocynk": {
+      "wrk": "Ocynkownia",
+      "opr": "Ocynk"
+    }
+  },
+  "_technologia_opis": [
+    "Kod technologii = czlon referencji PO czlonie ilosci (np. 12_S235_SL40033136_p1_1st_G_1129_ -> G).",
+    "Pochodzi z kolumny 'Giecie' wykazu (jest czlonem formuly nazwy).",
+    "litery: G/W = giecie, S = spawanie, O = obrobka/ocynk.",
+    "Spawanie i ocynk dokladamy TYLKO gdy uzytkownik zaznaczy opcje w UI."
+  ],
+  "technologia": {
+    "": {
+      "giecie": false,
+      "spawanie": false,
+      "ocynk": false,
+      "opis": "tylko wypalanie"
+    },
+    "0": {
+      "giecie": false,
+      "spawanie": false,
+      "ocynk": false,
+      "opis": "tylko wypalanie"
+    },
+    "BRAK": {
+      "giecie": false,
+      "spawanie": false,
+      "ocynk": false,
+      "opis": "tylko wypalanie"
+    },
+    "G": {
+      "giecie": true,
+      "spawanie": false,
+      "ocynk": false,
+      "opis": "giecie"
+    },
+    "GS": {
+      "giecie": true,
+      "spawanie": true,
+      "ocynk": false,
+      "opis": "giecie+spawanie"
+    },
+    "SG": {
+      "giecie": true,
+      "spawanie": true,
+      "ocynk": false,
+      "opis": "giecie+spawanie"
+    },
+    "GO": {
+      "giecie": true,
+      "spawanie": false,
+      "ocynk": true,
+      "opis": "giecie+obrobka"
+    },
+    "GSO": {
+      "giecie": true,
+      "spawanie": true,
+      "ocynk": true,
+      "opis": "giecie+spawanie+obrobka"
+    },
+    "S": {
+      "giecie": false,
+      "spawanie": true,
+      "ocynk": false,
+      "opis": "spawanie"
+    },
+    "SO": {
+      "giecie": false,
+      "spawanie": true,
+      "ocynk": true,
+      "opis": "spawanie+obrobka"
+    },
+    "O": {
+      "giecie": false,
+      "spawanie": false,
+      "ocynk": true,
+      "opis": "obrobka"
+    },
+    "W": {
+      "giecie": true,
+      "spawanie": false,
+      "ocynk": false,
+      "opis": "walcowanie (marszruta jak giecie)"
+    },
+    "WS": {
+      "giecie": true,
+      "spawanie": true,
+      "ocynk": false,
+      "opis": "walcowanie+spawanie"
+    },
+    "WSO": {
+      "giecie": true,
+      "spawanie": true,
+      "ocynk": true,
+      "opis": "walcowanie+spawanie+obrobka"
+    }
+  },
+  "_materialy_opis": "gatunek (2. czlon referencji) -> MatRef w LANTEKU. Klucz porownywany bez spacji, wielkimi literami. Kazdy MatRef MUSI istniec w kartotece LANTEKA (DIS_MMTT_MMTT_00000100) - kontrola to sprawdza i blokuje wgranie, gdy materialu nie ma.",
+  "materialy": {
+    "S235": "S235JR",
+    "S235JR": "S235JR",
+    "S235JRC": "S235JR",
+    "S355": "S355",
+    "S355J2": "S355",
+    "OC": "DX51D",
+    "VER": "DX51D",
+    "VERZINKT": "DX51D",
+    "DX51D": "DX51D",
+    "DC01": "DC01",
+    "ST35": "ST35",
+    "ST37": "ST37",
+    "ST52": "ST52",
+    "HB400": "HB400",
+    "HB450": "HB450",
+    "HARDOX400": "HB400",
+    "HARDOX450": "HARDOX450",
+    "C45": "C45",
+    "RYFL": "S235 ryflowana",
+    "S235RYFLOWANA": "S235 ryflowana",
+    "16MO3": "16Mo3",
+    "P265": "P265",
+    "P235GH": "P235GH",
+    "S275J2H": "S275J2H",
+    "S355K2": "S355K2",
+    "ST42": "ST 42",
+    "ST33": "ST33",
+    "S235H9": "S235 H9",
+    "HARDOX": "HARDOX450",
+    "X5CRNI": "X5CrNi",
+    "X5CRNI18-10": "X5CrNi18-10",
+    "NIERDZEWKA": "nierdzewka",
+    "MS": "[MS]"
+  },
+  "_kolumny_opis": "Aliasy naglowkow wykazu roboczego. Szukamy po PREFIKSIE, wygrywa kolumna NAJBARDZIEJ Z LEWEJ.",
+  "kolumny": {
+    "zakupy": [
+      "zakupy"
+    ],
+    "zeinr": [
+      "zeinr"
+    ],
+    "posn": [
+      "posn"
+    ],
+    "ilosc": [
+      "anz",
+      "ilosc do wykonania",
+      "ilosc"
+    ],
+    "giecie": [
+      "giecie"
+    ],
+    "index": [
+      "index",
+      "indeks"
+    ],
+    "sprawdzenie": [
+      "sprawdzenie"
+    ],
+    "propozycja": [
+      "propozycja"
+    ],
+    "gatunek": [
+      "gatunek_poprawiony",
+      "gatunek_zrodlo",
+      "gatunek"
+    ],
+    "grubosc": [
+      "grubosc_poprawiona",
+      "grubosc_zrodlo",
+      "grubosc"
+    ],
+    "bezeichnung": [
+      "bezeichnung"
+    ],
+    "nazwa": [
+      "nazwa",
+      "nazwa_teraz",
+      "nazwa_po_indeksie",
+      "nazwa_docelowa"
+    ]
+  },
+  "_kolumny_nazwa_opis": "Kandydaci na kolumne REFERENCJI. Domyslnie 'Nazwa' (formula wykazu roboczego); gdy wskazano folder DXF, aplikacja wybiera kolumne z NAJWIEKSZA liczba trafien w pliki DXF. Uzytkownik moze zmienic."
+}

@@ -16,6 +16,7 @@ TMP = Path(tempfile.gettempdir()) / "test_wgrywanie_dxf"
 TMP.mkdir(exist_ok=True)
 os.environ["LANTEK_DXF_DIR"] = str(TMP / "DXF")
 os.environ["DATA_DIR"] = str(TMP / "data")
+os.environ["REJESTR_ZRODEL_DIR"] = str(TMP / "rejestr_zrodel")   # NIE prawdziwy na QNAP
 
 from app import app  # noqa: E402
 

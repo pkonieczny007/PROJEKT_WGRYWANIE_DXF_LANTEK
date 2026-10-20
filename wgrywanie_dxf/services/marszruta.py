@@ -19,6 +19,7 @@ from pathlib import Path
 MAPOWANIE = json.loads((Path(__file__).resolve().parent.parent / "mapowanie.json")
                        .read_text(encoding="utf-8"))
 LASER = MAPOWANIE["laser"]
+MASZYNY = MAPOWANIE.get("maszyny") or {"laser": dict(LASER, nazwa="laser")}
 OPERACJE = MAPOWANIE["operacje"]
 TECHNOLOGIA = MAPOWANIE["technologia"]
 
@@ -37,8 +38,27 @@ def legenda() -> dict:
     return {k: v.get("opis", "") for k, v in TECHNOLOGIA.items()}
 
 
-def operacje(kod, dokladaj_spawanie=False, dokladaj_ocynk=False) -> list:
-    """[(OOrder, PrevOpr, WrkRef, OprRef, etykieta)] - zawsze zaczyna od wypalania.
+def maszyna_domyslna(grubosc) -> str:
+    """'plazma' od progu z mapowania (20 mm), ponizej 'laser'. Brak grubosci -> laser."""
+    try:
+        g = float(grubosc)
+    except (TypeError, ValueError):
+        return "laser"
+    return "plazma" if g >= float(MAPOWANIE.get("plazma_od_grubosci", 20)) else "laser"
+
+
+def maszyna_po_centrum(wrk) -> str:
+    """WrkRef pierwszej operacji -> 'laser' / 'plazma' / '' (inne centrum)."""
+    w = (wrk or "").strip().lower()
+    for klucz, m in MASZYNY.items():
+        if m["wrk"].lower() == w:
+            return klucz
+    return ""
+
+
+def operacje(kod, dokladaj_spawanie=False, dokladaj_ocynk=False, maszyna="laser") -> list:
+    """[(OOrder, PrevOpr, WrkRef, OprRef, etykieta)] - zawsze zaczyna od wypalania
+    na wybranej maszynie (laser / plazma).
 
     Spawanie i ocynk dokladamy TYLKO gdy uzytkownik wlaczy opcje - domyslnie
     wgrywamy to, co robia obecne importy z 2026: wypalanie + giecie.
@@ -51,7 +71,8 @@ def operacje(kod, dokladaj_spawanie=False, dokladaj_ocynk=False) -> list:
             "spawanie": bool(reg.get("spawanie")) and dokladaj_spawanie,
             "ocynk": bool(reg.get("ocynk")) and dokladaj_ocynk}
 
-    out = [(1, 0, LASER["wrk"], LASER["opr"], "wypalanie")]
+    m = MASZYNY.get(maszyna) or LASER
+    out = [(1, 0, m["wrk"], m["opr"], "wypalanie")]
     for nazwa in KOLEJNOSC:
         if not chce[nazwa]:
             continue

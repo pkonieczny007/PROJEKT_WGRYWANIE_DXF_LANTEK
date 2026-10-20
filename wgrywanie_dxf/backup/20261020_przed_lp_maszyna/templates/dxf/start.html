@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block tresc %}
+
+<form method="post">
+  <fieldset>
+    <legend>1. Zlecenie</legend>
+    <label>Numer zlecenia (NN_XXXX)</label>
+    <div class="rzad" style="margin-top:0">
+      <input type="text" name="numer" id="numer" value="{{ numer }}" placeholder="82_1129"
+             style="max-width:220px" autocomplete="off">
+      <span class="mini" id="zam-status">
+        {% if zam %}{% include "dxf/_zamowienia.html" %}{% endif %}
+      </span>
+    </div>
+    <label>Folder zlecenia - z niego bierzemy wykazy (puste = szukam w Technologii)</label>
+    <input type="text" name="folder_zlecenia" id="folder_zlecenia"
+           value="{{ prop.folder if prop and prop.folder else '' }}"
+           placeholder="//QNAP-ENERGO/Technologia/2026/82_1129" autocomplete="off">
+    <div class="podpowiedzi" id="folder-podp" data-cel="folder_zlecenia"></div>
+    <div class="rzad">
+      <button name="akcja" value="propozycje">Zaproponuj wykaz i foldery</button>
+      <span class="mini">Skan sieci trwa kilkanascie sekund. Wszystkie sciezki mozesz wpisac recznie.</span>
+    </div>
+  </fieldset>
+</form>
+
+<form method="post">
+  <input type="hidden" name="numer" value="{{ numer }}">
+
+  <fieldset>
+    <legend>2. Wykaz roboczy</legend>
+    <label>Sciezka do pliku wykazu (kliknij propozycje albo wpisz wlasna)</label>
+    <input type="text" name="wykaz" id="wykaz" autocomplete="off"
+           value="{{ prop.wykazy[0].sciezka if prop and prop.wykazy else '' }}"
+           placeholder="//QNAP-ENERGO/Technologia/2026/82_1129/ROBOCZY_....xlsx">
+    {% if prop and prop.wykazy %}
+      <label>Propozycje z folderu {{ prop.folder }}</label>
+      <div class="podpowiedzi" data-cel="wykaz">
+        {% for w in prop.wykazy %}
+          <button type="button" class="podp{% if w.roboczy %} rob{% endif %}"
+                  data-wartosc="{{ w.sciezka }}">{% if w.roboczy %}[ROBOCZY] {% endif %}{{ w.nazwa }}</button>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div class="rzad">
+      <div style="flex:1;min-width:220px">
+        <label>Kolumna z referencja (puste = wybor automatyczny)</label>
+        <input type="text" name="kolumna_nazwy" placeholder="Nazwa / NAZWA_teraz / NAZWA_docelowa">
+      </div>
+      <div style="flex:1;min-width:220px">
+        <label>Kolumna z iloscia (puste = Anz.)</label>
+        <input type="text" name="kolumna_ilosci" placeholder="Anz. / ILOSC DO WYKONANIA">
+      </div>
+    </div>
+    <label>Grubosc i gatunek bierzemy z</label>
+    <label class="ch"><input type="radio" name="zrodlo_wymiarow" value="referencja" checked>
+      <b>referencji</b> - 1. czlon to grubosc, 2. czlon to gatunek
+      (np. <code>12_S235_...</code> &rarr; 12 mm, S235)</label>
+    <label class="ch"><input type="radio" name="zrodlo_wymiarow" value="kolumny">
+      kolumn wykazu <code>grubosc_poprawiona</code> / <code>gatunek_poprawiony</code></label>
+    <p class="mini">Referencja niesie oba czlony zawsze i to ona idzie do LANTEKA.
+       Kolumny kontrolne sa tylko w wykazach zrobionych przez /wykaz-roboczy.
+       Niezaleznie od wyboru kontrola porownuje oba zrodla i zglasza rozjazd.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Pliki DXF</legend>
+    {% if prop and prop.foldery_dxf %}
+      <label>Zaznacz folder albo kilka. Przy tej samej nazwie pliku wygrywa folder wyzej.</label>
+      <div class="lista-folderow">
+        {% for d in prop.foldery_dxf %}
+          <label class="ch" style="display:block;color:inherit">
+            <input type="checkbox" name="folder_dxf" value="{{ d.sciezka }}"
+                   {% if loop.first %}checked{% endif %}>
+            <b>{{ d.plikow }}</b> plikow &middot; {{ d.sciezka }}
+          </label>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <label>Albo wskaz folder recznie (ma pierwszenstwo)</label>
+    <input type="text" name="folder_reczny" placeholder="//QNAP-ENERGO/Technologia/2026/82_1129/DXF82/...">
+    <div class="rzad">
+      <label class="ch"><input type="checkbox" name="podfoldery"> szukaj takze w podfolderach</label>
+      <label class="ch"><input type="checkbox" name="badaj_dxf" checked> otwieraj pliki DXF (wolniejsze, ale wykrywa uszkodzone)</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. Zamowienie sprzedazy i marszruta</legend>
+    <div class="rzad">
+      <div style="flex:1;min-width:240px">
+        <label>Numer zamowienia (OrdRef, do 40 znakow; puste = nie dopinamy)</label>
+        <input type="text" name="ordref" id="ordref" maxlength="40" autocomplete="off"
+               value="{{ prop.ordref if prop else '' }}">
+        <div class="mini" id="ordref-status"></div>
+        <div class="podpowiedzi" id="ordref-podp" data-cel="ordref"></div>
+      </div>
+      <div style="flex:1;min-width:240px">
+        <label>Gdy referencja powtarza sie w wykazie</label>
+        <label class="ch"><input type="radio" name="tryb_ilosci" value="pierwszy" checked>
+          ilosc z pierwszego wiersza (zgodna z czlonem "Nst")</label>
+        <label class="ch"><input type="radio" name="tryb_ilosci" value="suma">
+          suma ilosci ze wszystkich wierszy</label>
+      </div>
+    </div>
+    <p class="mini" style="margin-top:10px">
+      Marszrute nadaje LANTEK sam, regula ruty czytajaca pole UData8 - wpisujemy tam
+      referencje, dokladnie tak jak robi to Lantek Expert. Ponizsze opcje dotycza
+      tylko pozycji, ktorym regula LANTEKA nie nada gietarki.
+    </p>
+    <div class="rzad">
+      <label class="ch"><input type="checkbox" name="wymus_marszrute">
+        przygotuj poprawke marszruty dla pozycji bez gietarki</label>
+      <label class="ch"><input type="checkbox" name="dokladaj_spawanie"> dokladaj spawanie (S)</label>
+      <label class="ch"><input type="checkbox" name="dokladaj_ocynk"> dokladaj ocynk (O)</label>
+      <label class="ch" title="wkrotce"><input type="checkbox" disabled> sprawdzanie daszkow (wkrotce)</label>
+    </div>
+  </fieldset>
+
+  <div class="rzad">
+    <button class="glowny" name="akcja" value="kontrola">Uruchom kontrole</button>
+    <button name="akcja" value="nowy">Zacznij od nowa</button>
+  </div>
+</form>
+
+{% if prop and prop.uwagi %}
+  <p class="mini">{{ prop.uwagi|join(" &middot; ")|safe }}</p>
+{% endif %}
+
+<script>
+(function () {
+  var API = "{{ url_for('dxf.api_zlecenie') }}";
+  var $ = function (id) { return document.getElementById(id); };
+  var zamowienia = {{ (zam.zamowienia if zam else [])|tojson }};
+  var folderRecznie = {{ 'true' if prop and prop.folder_reczny else 'false' }};
+  var ostatniNumer = "";
+
+  function esc(t) {
+    var d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML;
+  }
+
+  // klik w propozycje wpisuje ja do pola - pole zostaje edytowalne
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("button.podp");
+    if (!b) return;
+    var cel = $(b.closest(".podpowiedzi").dataset.cel);
+    cel.value = b.dataset.wartosc;
+    cel.dispatchEvent(new Event("input"));
+    cel.focus();
+  });
+
+  function zaznacz() {
+    document.querySelectorAll(".podpowiedzi").forEach(function (box) {
+      var v = ($(box.dataset.cel) || {}).value;
+      box.querySelectorAll("button.podp").forEach(function (b) {
+        b.classList.toggle("wybrany", b.dataset.wartosc === v);
+      });
+    });
+  }
+
+  function guziki(box, wartosci, etykieta) {
+    box.innerHTML = "";
+    wartosci.forEach(function (w) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "podp"; b.dataset.wartosc = w;
+      b.textContent = etykieta ? etykieta(w) : w;
+      box.appendChild(b);
+    });
+    zaznacz();
+  }
+
+  function opisZam(z) {
+    return z.ordref + " (" + z.linii + " linii, " + z.stan + ", od " + z.utworzone + ")";
+  }
+
+  function pokazZamowienia(inf) {
+    var st = $("zam-status");
+    if (inf.blad && !inf.zamowienia.length) {
+      st.innerHTML = '<span class="zle">LANTEK niedostepny: ' + esc(inf.blad) + "</span>";
+    } else if (!inf.zamowienia.length) {
+      st.innerHTML = '<span class="zle">brak zamowien sprzedazy w LANTEKU dla ' +
+        esc(inf.numer) + "</span> (lista z " + esc(inf.pobrano) + ")";
+    } else {
+      st.innerHTML = '<span class="ok">w LANTEKU: ' + esc(inf.zamowienia.map(opisZam).join(", ")) +
+        "</span> (lista z " + esc(inf.pobrano) + ")";
+    }
+    zamowienia = inf.zamowienia;
+    ordrefStatus();
+  }
+
+  function ordrefStatus() {
+    var pole = $("ordref"), st = $("ordref-status");
+    if (!pole) return;
+    guziki($("ordref-podp"), zamowienia.map(function (z) { return z.ordref; }));
+    var v = pole.value.trim();
+    if (!v) { st.textContent = "zamowienie nie bedzie dopinane"; return; }
+    var z = zamowienia.find(function (z) { return z.ordref.toUpperCase() === v.toUpperCase(); });
+    st.innerHTML = z
+      ? '<span class="ok">istnieje w LANTEKU</span> - ' + z.linii + " linii, " + esc(z.stan) +
+        ", nowe linie od " + (z.max_linia + 1)
+      : '<span class="zle">nie ma go w LANTEKU</span> - zostanie zalozone przy wgraniu';
+  }
+
+  // przyStarcie: strona po "Zaproponuj" - pole folderu zostawiamy jak jest
+  function sprawdzNumer(przyStarcie) {
+    var n = $("numer").value.trim();
+    if (!/^\d{1,3}[_\-. ]\d{4}$/.test(n) || (n === ostatniNumer && !przyStarcie)) return;
+    ostatniNumer = n;
+    $("zam-status").textContent = "sprawdzam w LANTEKU...";
+    fetch(API + "?numer=" + encodeURIComponent(n))
+      .then(function (r) { return r.json(); })
+      .then(function (inf) {
+        if (!inf.ok || $("numer").value.trim() !== inf.numer) return;
+        pokazZamowienia(inf);
+        var f = $("folder_zlecenia");
+        // wlasny folder zostaje, o ile lezy w folderze tego zlecenia (np. rewizja)
+        var wlasny = folderRecznie && inf.folder &&
+          f.value.toLowerCase().indexOf(inf.folder.toLowerCase()) === 0;
+        if (!przyStarcie && !wlasny) { f.value = inf.folder || ""; folderRecznie = false; }
+        var podp = inf.folder ? [inf.folder].concat(inf.podfoldery) : [];
+        guziki($("folder-podp"), podp, function (w) {
+          return w === inf.folder ? w : "\u2514 " + w.substring(inf.folder.length + 1);
+        });
+        if (!inf.folder) $("folder-podp").innerHTML =
+          '<span class="mini zle">nie znalazlem folderu zlecenia w Technologii - wpisz recznie</span>';
+      })
+      .catch(function () { $("zam-status").textContent = "nie udalo sie sprawdzic zlecenia"; });
+  }
+
+  var zegar;
+  $("numer").addEventListener("input", function () {
+    clearTimeout(zegar); zegar = setTimeout(sprawdzNumer, 400);
+  });
+  $("folder_zlecenia").addEventListener("input", function (e) {
+    if (e.isTrusted) folderRecznie = true;   // wpisane palcem - nie nadpisujemy
+    zaznacz();
+  });
+  ["wykaz", "ordref"].forEach(function (id) {
+    if ($(id)) $(id).addEventListener("input", function () {
+      zaznacz(); if (id === "ordref") ordrefStatus();
+    });
+  });
+
+  ordrefStatus();
+  zaznacz();
+  if ($("numer").value.trim()) sprawdzNumer(true);
+})();
+</script>
+{% endblock %}

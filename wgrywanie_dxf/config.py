@@ -45,6 +45,9 @@ class Config:
     # --- wyniki -------------------------------------------------------------
     DATA_DIR = Path(_p("DATA_DIR", str(ROOT / "data")))
     REJESTR = DATA_DIR / "rejestr_wgran.jsonl"
+    # wspolny rejestr zrodel wgranych DXF (Excel) + backup/ - na QNAP, dla wszystkich
+    REJESTR_ZRODEL_DIR = _p("REJESTR_ZRODEL_DIR",
+                            "//Qnap-energo/baza/.data/python/wgrywanie-do-lanteka-dxf")
 
     # --- gdzie szukac wykazu i DXF po numerze zlecenia (propozycje) ---------
     # UWAGA: sciezki UNC zapisujemy UKOSNIKAMI W PRZOD. Wersja z backslashami

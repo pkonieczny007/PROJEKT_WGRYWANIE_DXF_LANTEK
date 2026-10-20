@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block tytul %}Wgrywanie DXF do LANTEKA{% endblock %}</title>
+  <style>
+    :root{--zi:#0f7b3d;--zo:#b06a00;--cz:#b3261e;--tlo:#fff;--txt:#1a1a1a;--ram:#d9d9d9;--pas:#f5f6f8}
+    @media (prefers-color-scheme:dark){:root{--tlo:#16181c;--txt:#e8e8e8;--ram:#3a3d44;--pas:#1d2026}}
+    *{box-sizing:border-box}
+    body{font:15px/1.55 "Segoe UI",system-ui,sans-serif;margin:0;background:var(--tlo);color:var(--txt)}
+    header{background:var(--pas);border-bottom:1px solid var(--ram);padding:10px 22px;
+           display:flex;align-items:baseline;gap:16px}
+    header b{font-size:17px}
+    header span{color:#888;font-size:13px}
+    main{max-width:1180px;margin:0 auto;padding:18px 22px 60px}
+    h2{font-size:18px;margin:26px 0 10px}
+    fieldset{border:1px solid var(--ram);border-radius:8px;padding:14px 16px;margin:0 0 16px}
+    legend{padding:0 6px;font-weight:600;font-size:14px}
+    label{display:block;font-size:13px;color:#888;margin:8px 0 3px}
+    input[type=text],select,textarea{width:100%;padding:7px 9px;border:1px solid var(--ram);
+      border-radius:6px;background:var(--tlo);color:var(--txt);font:inherit;font-size:13.5px}
+    input[type=checkbox],input[type=radio]{margin-right:6px}
+    .ch{display:inline-block;margin:4px 18px 4px 0;font-size:13.5px;color:var(--txt)}
+    button{padding:8px 16px;border:1px solid var(--ram);border-radius:6px;cursor:pointer;
+      background:var(--pas);color:var(--txt);font:inherit;font-size:14px}
+    button.glowny{background:#1b64d9;border-color:#1b64d9;color:#fff;font-weight:600}
+    button.groza{background:var(--cz);border-color:var(--cz);color:#fff;font-weight:600}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .rzad{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    .flash{padding:9px 13px;border-radius:6px;margin:8px 0;border:1px solid;font-size:14px}
+    .f-info{border-color:#1b64d9;background:#1b64d914}
+    .f-success{border-color:var(--zi);background:#0f7b3d14}
+    .f-warning{border-color:var(--zo);background:#b06a0014}
+    .f-danger{border-color:var(--cz);background:#b3261e14}
+    table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+    th,td{border:1px solid var(--ram);padding:4px 8px;text-align:left;vertical-align:top}
+    th{background:#8881}
+    td.n{text-align:right;font-variant-numeric:tabular-nums}
+    .karty{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+    .karta{border:1px solid var(--ram);border-radius:8px;padding:9px 14px;min-width:110px}
+    .karta b{display:block;font-size:24px;line-height:1.1}
+    .karta span{font-size:12px;color:#888}
+    .werdykt{padding:12px 16px;border-radius:8px;font-weight:700;margin:12px 0;border:2px solid}
+    .w-OK{color:var(--zi);border-color:var(--zi);background:#0f7b3d14}
+    .w-UWAGA{color:var(--zo);border-color:var(--zo);background:#b06a0014}
+    .w-STOP{color:var(--cz);border-color:var(--cz);background:#b3261e14}
+    code{background:#8881;padding:1px 5px;border-radius:4px;font-size:12.5px;word-break:break-all}
+    .krok{border:1px solid var(--ram);border-radius:8px;padding:14px 16px;margin:0 0 14px}
+    .krok h3{margin:0 0 6px;font-size:15.5px}
+    .krok p{margin:4px 0;font-size:13.5px;color:#888}
+    .lista-folderow{max-height:230px;overflow:auto;border:1px solid var(--ram);
+      border-radius:6px;padding:8px}
+    .mini{font-size:12px;color:#888}
+    .mini .ok{color:var(--zi);font-weight:600}
+    .zle{color:var(--zo);font-weight:600}
+    .podpowiedzi{display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+      margin-top:5px;max-height:210px;overflow:auto}
+    .podpowiedzi:empty{display:none}
+    button.podp{padding:3px 9px;font-size:12.5px;text-align:left;border-radius:5px;
+      background:transparent;word-break:break-all}
+    button.podp:hover{border-color:#1b64d9}
+    button.podp.rob{font-weight:600}
+    button.podp.wybrany{border-color:#1b64d9;background:#1b64d91a}
+  </style>
+</head>
+<body>
+<header>
+  <b>Wgrywanie DXF do LANTEKA</b>
+  <span>wykaz roboczy + pliki DXF &rarr; kontrola &rarr; XML &rarr; PowerSync</span>
+</header>
+<main>
+  {% with wiadomosci = get_flashed_messages(with_categories=true) %}
+    {% for kategoria, tresc in wiadomosci %}
+      <div class="flash f-{{ kategoria }}">{{ tresc }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block tresc %}{% endblock %}
+</main>
+</body>
+</html>

@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block tytul %}Wgrywanie DXF do LANTEKA{% endblock %}</title>
   <style>
-    :root{--zi:#0f7b3d;--zo:#b06a00;--cz:#b3261e;--tlo:#fff;--txt:#1a1a1a;--ram:#d9d9d9;--pas:#f5f6f8}
-    @media (prefers-color-scheme:dark){:root{--tlo:#16181c;--txt:#e8e8e8;--ram:#3a3d44;--pas:#1d2026}}
+    :root{--zi:#0f7b3d;--zo:#b06a00;--cz:#b3261e;--tlo:#fff;--txt:#1a1a1a;--ram:#d9d9d9;--pas:#f5f6f8;
+          color-scheme:light}
+    @media (prefers-color-scheme:dark){:root{--tlo:#16181c;--txt:#e8e8e8;--ram:#3a3d44;--pas:#1d2026;
+          color-scheme:dark}}
+    /* rozwinieta lista: bez tego przegladarka daje biale tlo, a tekst dziedziczy jasny */
+    select option{background:var(--tlo);color:var(--txt)}
     *{box-sizing:border-box}
     body{font:15px/1.55 "Segoe UI",system-ui,sans-serif;margin:0;background:var(--tlo);color:var(--txt)}
     header{background:var(--pas);border-bottom:1px solid var(--ram);padding:10px 22px;
@@ -62,6 +66,21 @@
     button.podp:hover{border-color:#1b64d9}
     button.podp.rob{font-weight:600}
     button.podp.wybrany{border-color:#1b64d9;background:#1b64d91a}
+    .filtry{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;
+      z-index:2;background:var(--tlo);padding:8px 0;border-bottom:1px solid var(--ram)}
+    .filtry select,.filtry input{width:auto;font-size:12.5px;padding:4px 7px}
+    .filtry button{padding:4px 10px;font-size:12.5px}
+    #t-podglad input,#t-podglad select{width:auto;font-size:12.5px;padding:3px 6px}
+    #t-podglad input.zm-ref{width:100%}
+    /* zmiana reczna - fiolet, zeby odroznial sie od kolorow OK/UWAGA/STOP */
+    /* pelne (nieprzezroczyste) kolory - na polprzezroczystym tle rozwinieta lista
+       i tekst w polu robily sie nieczytelne */
+    :root{--rec:#7c3aed;--rec-tlo:#efe7fe;--rec-txt:#3b0a8c}
+    @media (prefers-color-scheme:dark){:root{--rec:#a78bfa;--rec-tlo:#2e1f52;--rec-txt:#ede4ff}}
+    td.reczna{background:var(--rec-tlo);box-shadow:inset 3px 0 0 var(--rec)}
+    .pole-m.reczna{border-color:var(--rec);background:var(--rec-tlo);color:var(--rec-txt);font-weight:600}
+    .pole-m.reczna option{background:var(--tlo);color:var(--txt);font-weight:400}
+    td.reczna .mini{color:var(--rec-txt)}
   </style>
 </head>
 <body>

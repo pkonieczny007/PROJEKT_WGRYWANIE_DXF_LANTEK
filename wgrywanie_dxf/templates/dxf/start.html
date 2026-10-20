@@ -97,20 +97,26 @@
       </div>
       <div style="flex:1;min-width:240px">
         <label>Gdy referencja powtarza sie w wykazie</label>
-        <label class="ch"><input type="radio" name="tryb_ilosci" value="pierwszy" checked>
-          ilosc z pierwszego wiersza (zgodna z czlonem "Nst")</label>
+        <label class="ch"><input type="radio" name="tryb_ilosci" value="stop" checked>
+          <b>zatrzymaj</b> - w wykazie powinien byc indeks (domyslnie)</label>
+        <label class="ch"><input type="radio" name="tryb_ilosci" value="pierwszy">
+          swiadomie scal: ilosc z pierwszego wiersza (zgodna z czlonem "Nst")</label>
         <label class="ch"><input type="radio" name="tryb_ilosci" value="suma">
-          suma ilosci ze wszystkich wierszy</label>
+          swiadomie scal: suma ilosci ze wszystkich wierszy</label>
+        <p class="mini">Wiersz z koncowka <code>_LP</code> to dwa elementy: <code>_L</code> i <code>_P</code>,
+           kazdy po polowie sztuk - tak jak pliki DXF.</p>
       </div>
     </div>
     <p class="mini" style="margin-top:10px">
       Marszrute nadaje LANTEK sam, regula ruty czytajaca pole UData8 - wpisujemy tam
-      referencje, dokladnie tak jak robi to Lantek Expert. Ponizsze opcje dotycza
-      tylko pozycji, ktorym regula LANTEKA nie nada gietarki.
+      referencje, dokladnie tak jak robi to Lantek Expert. Maszyne (od 20 mm plazma,
+      ponizej laser) zmienisz przy kontroli; gdy regula LANTEKA da inna, marszrute
+      poprawiamy drugim importem zaraz po glownym. Spawanie i ocynk ponizej trafiaja
+      tylko do tej poprawki.
     </p>
     <div class="rzad">
       <label class="ch"><input type="checkbox" name="wymus_marszrute">
-        przygotuj poprawke marszruty dla pozycji bez gietarki</label>
+        popraw tez marszrute pozycjom bez gietarki (kody SG, W, WS, GSO &gt; 15 mm)</label>
       <label class="ch"><input type="checkbox" name="dokladaj_spawanie"> dokladaj spawanie (S)</label>
       <label class="ch"><input type="checkbox" name="dokladaj_ocynk"> dokladaj ocynk (O)</label>
       <label class="ch" title="wkrotce"><input type="checkbox" disabled> sprawdzanie daszkow (wkrotce)</label>

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block tresc %}
+
+<h2>Zlecenie {{ st.numer or "(bez numeru)" }}</h2>
+<p class="mini">
+  wykaz: <code>{{ st.wykaz }}</code><br>
+  DXF: {% for f in st.foldery_dxf %}<code>{{ f }}</code>{% if not loop.last %} &middot; {% endif %}{% endfor %}<br>
+  zamowienie: <code>{{ st.ordref or "brak" }}</code> &middot; folder wynikow: <code>{{ folder }}</code>
+</p>
+
+{% set k = st.kontrola %}
+{% set x = st.xml %}
+{% set wg = st.wgranie %}
+{% set po = st.po %}
+
+<div class="krok">
+  <h3>Krok 1 &middot; Kontrola przed wgraniem</h3>
+  {% if k %}
+    <div class="werdykt w-{{ k.werdykt }}">Werdykt: {{ k.werdykt }}</div>
+    <div class="karty">
+      <div class="karta"><b>{{ k.blacha }}</b><span>pozycji blachy</span></div>
+      <div class="karta"><b>{{ k.licznik.OK }}</b><span>bez zastrzezen</span></div>
+      <div class="karta"><b>{{ k.licznik.UWAGA }}</b><span>z uwaga</span></div>
+      <div class="karta"><b>{{ k.licznik.STOP }}</b><span>zablokowanych</span></div>
+      <div class="karta"><b>{{ st.do_wgrania|length }}</b><span>do wgrania</span></div>
+      <div class="karta"><b>{{ k.bez_giecia_a_powinno }}</b><span>bez gietarki mimo G</span></div>
+    </div>
+    <p>kolumna referencji: <code>{{ k.kolumna_nazwy }}</code> &middot;
+       ilosc: <code>{{ k.kolumna_ilosci }}</code> &middot;
+       baza: {{ "tak" if k.baza_dostepna else "NIE" }} &middot;
+       zamowienie {{ "istnieje, linie od " ~ k.pierwsza_linia if k.zamowienie_istnieje else "zostanie zalozone" }}</p>
+    {% if k.kody %}
+      <table>
+        <tr><th>co wyszlo</th><th>ile pozycji</th></tr>
+        {% for kod, ile in k.kody.items() %}<tr><td>{{ kod }}</td><td class="n">{{ ile }}</td></tr>{% endfor %}
+      </table>
+    {% endif %}
+
+    {% if k.materialy %}
+      <h3 style="font-size:15px;margin:18px 0 4px">Materialy &mdash; co na co idzie (grubosc + gatunek)</h3>
+      <p class="mini">grubosc i gatunek czytane z {{ "referencji" if k.zrodlo_wymiarow == "referencja" else "kolumn wykazu" }};
+         sztuki = ilosc, ktora idzie do zamowienia; MatRef musi istniec w kartotece LANTEKA</p>
+      {% set suma = namespace(poz=0, szt=0) %}
+      <table>
+        <tr><th>grubosc [mm]</th><th>gatunek</th><th>MatRef w LANTEKU</th><th>pozycji</th><th>sztuk</th><th>jest w kartotece</th></tr>
+        {% for m in k.materialy %}
+          {% set suma.poz = suma.poz + (m.pozycji or 0) %}
+          {% set suma.szt = suma.szt + (m.sztuk or 0) %}
+          <tr class="{{ 'STOP' if m.w_kartotece is false else ('OK' if m.w_kartotece else '') }}">
+            <td class="n">{{ m.grubosc or "-" }}</td>
+            <td>{{ m.gatunek }}</td><td>{{ m.material }}</td>
+            <td class="n">{{ m.pozycji }}</td>
+            <td class="n">{{ "%g"|format(m.sztuk) if m.sztuk is defined and m.sztuk is not none else "-" }}</td>
+            <td>{{ "tak" if m.w_kartotece else ("NIE MA" if m.w_kartotece is false else "?") }}</td>
+          </tr>
+        {% endfor %}
+        <tr style="font-weight:700">
+          <td>SUMA</td><td></td><td>{{ k.materialy|length }} grup</td>
+          <td class="n">{{ suma.poz }}</td><td class="n">{{ "%g"|format(suma.szt) }}</td><td></td>
+        </tr>
+      </table>
+    {% endif %}
+
+    {% if st.podglad %}
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;font-weight:600">
+          Podglad pozycji ({{ st.podglad|length }} z {{ k.wszystkich }}) &mdash; co pojdzie do LANTEKA
+        </summary>
+        <p class="mini">Pelna lista jest w raporcie HTML ponizej.</p>
+        <table>
+          <tr><th></th><th>w.</th><th>referencja</th><th>gatunek &rarr; MatRef</th>
+              <th>grubosc</th><th>ilosc</th><th>kod</th><th>ruta</th>
+              <th>marszruta</th><th>DXF</th><th>uwagi</th></tr>
+          {% for p in st.podglad %}
+            <tr class="{{ p.poziom }}">
+              <td>{{ p.poziom }}</td><td class="n">{{ p.wiersz }}</td>
+              <td>{{ p.ref }}</td>
+              <td>{{ p.gatunek or "-" }} &rarr; {{ p.material or "?" }}</td>
+              <td class="n">{{ p.grubosc }}</td><td class="n">{{ p.ilosc }}</td>
+              <td>{{ p.kod or "-" }}</td><td>{{ p.ruta or "-" }}</td>
+              <td>{{ p.marszruta or "-" }}</td>
+              <td>{{ p.stan_dxf or "-" }}</td>
+              <td>{{ p.uwagi|join("; ") }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </details>
+    {% endif %}
+  {% else %}
+    <p>Kontrola sprawdza wykaz, pliki DXF i baze LANTEKA. Nic nie zapisuje do bazy.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    <button class="glowny" name="akcja" value="kontrola">
+      {{ "Powtorz kontrole" if k else "Uruchom kontrole" }}</button>
+  </form>
+</div>
+
+<div class="krok">
+  <h3>Krok 2 &middot; XML i kopia plikow DXF</h3>
+  {% if x %}
+    <p>XML: <code>{{ x.xml }}</code></p>
+    <p>elementow {{ x.podsumowanie.elementow }} &middot;
+       z geometria {{ x.podsumowanie.z_geometria }} &middot;
+       linii zamowienia {{ x.podsumowanie.linii_zamowienia }} &middot;
+       {% if x.podsumowanie.bez_linii %}bez linii (juz w zamowieniu) {{ x.podsumowanie.bez_linii }} &middot; {% endif %}
+       {{ "zaklada zamowienie" if x.podsumowanie.zaklada_zamowienie else "dopina do istniejacego" }}</p>
+    {% if x.podwojenie %}
+      <div class="werdykt w-STOP">PODWOJENIE: {{ x.podwojonych }} elementow, ktore juz sa
+        w zamowieniach ({{ x.zamowienia_powtorek|join(", ") }}), dostanie nowe linie -
+        ilosci sie podwoja.</div>
+    {% endif %}
+    <p>skopiowano {{ x.skopiowanych_dxf }} plikow DXF do <code>{{ x.katalog_dxf }}</code></p>
+    {% if x.xml_marszruta %}
+      <p>poprawka marszruty dla {{ x.marszrut_do_poprawy }} pozycji:
+         <code>{{ x.xml_marszruta }}</code> (wgrywana osobno, po imporcie glownym)</p>
+    {% endif %}
+  {% else %}
+    <p>Kopiuje pliki DXF tam, gdzie widzi je LANTEK, i sklada plik XML.
+       W polu UData8 ladauje referencja - to ona wlacza regule marszruty.</p>
+  {% endif %}
+  {% set powt = (st.do_wgrania or [])|selectattr("w_zamowieniach")|list %}
+  {% if powt %}
+    <p><b>{{ powt|length }} elementow juz jest w zamowieniach sprzedazy</b>
+       ({{ powt|map(attribute="w_zamowieniach")|sum(start=[])|unique|join(", ") }}).
+       Domyslnie wejda <b>bez linii zamowienia</b> - LANTEK tylko zaktualizuje element.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    {% if powt and st.ordref %}
+      <label class="ch" style="color:var(--cz)"><input type="checkbox" name="podwojenie">
+        dopisz je tez do zamowienia {{ st.ordref }} &mdash; <b>podwojenie ilosci</b></label>
+    {% endif %}
+    <button name="akcja" value="xml" {% if not st.do_wgrania %}disabled{% endif %}>
+      {{ "Zbuduj XML ponownie" if x else "Zbuduj XML" }}</button>
+  </form>
+</div>
+
+<div class="krok">
+  <h3>Krok 3 &middot; Wgranie do LANTEKA (PowerSync)</h3>
+  {% if wg %}
+    <div class="werdykt w-{{ 'OK' if wg.udany else 'STOP' }}">{{ wg.podsumowanie }}</div>
+    {% if wg.log %}<p>log importera: <code>{{ wg.log }}</code></p>{% endif %}
+  {% else %}
+    <p><b>To jedyny krok, ktory zapisuje do bazy LANTEKA.</b>
+       Tuz przed wyslaniem sprawdzamy jeszcze raz baze i rejestr wgran - ponowne
+       wgranie trzeba swiadomie potwierdzic.</p>
+  {% endif %}
+  {% set ponowne = historia or (x and x.powtorek) or wg %}
+  {% if x and (ponowne or x.podwojenie) %}
+    <div class="werdykt w-STOP" style="font-weight:400">
+      <b>To bedzie PONOWNE wgranie{% if x.podwojenie %} Z PODWOJENIEM ILOSCI{% endif %}.</b>
+      <ul style="margin:6px 0 0 18px;padding:0">
+        {% if x.powtorek %}
+          <li>{{ x.powtorek }} elementow juz jest w zamowieniach {{ x.zamowienia_powtorek|join(", ") }}
+            &mdash; {% if x.podwojenie %}<b>dostana nowe linie ({{ x.podwojonych }})</b>
+            {% else %}wejda bez linii zamowienia (aktualizacja elementu){% endif %}</li>
+        {% endif %}
+        {% for h in historia[:5] %}
+          <li>wgrane {{ (h.czas or "?")|replace("T", " ") }} &middot; zlecenie {{ h.zlecenie }}
+            &middot; zamowienie {{ h.ordref or "brak" }} &middot; {{ h.elementow }} elementow
+            {% if h.wspolnych is not none %}({{ h.wspolnych }} wspolnych z obecnym){% endif %}
+            {% if h.bledow %}&middot; bledow {{ h.bledow }}{% endif %}
+            {% if h.ponowne %}&middot; ponowne{% endif %}{% if h.podwojenie %} z podwojeniem{% endif %}</li>
+        {% endfor %}
+        {% if historia|length > 5 %}<li>... i {{ historia|length - 5 }} wczesniejszych</li>{% endif %}
+      </ul>
+    </div>
+  {% endif %}
+  <form method="post" class="rzad" id="form-wgraj">
+    <input type="hidden" name="akcja" value="wgraj">
+    <label class="ch"><input type="checkbox" name="potwierdzam"> potwierdzam wgranie</label>
+    {% if x and (ponowne or x.podwojenie) %}
+      <label class="ch" style="color:var(--cz)"><input type="checkbox" name="ponownie">
+        wgrywam ponownie swiadomie</label>
+      <label class="ch">wpisz <code>{{ haslo }}</code>:
+        <input type="text" name="haslo" autocomplete="off" style="width:200px;display:inline-block"></label>
+    {% endif %}
+    <button class="groza" type="submit" {% if not x %}disabled{% endif %}>
+      Wgraj do LANTEKA</button>
+  </form>
+  <script>
+    // po kliknieciu przycisk gasnie - drugie klikniecie nie wysle importu
+    document.getElementById("form-wgraj").addEventListener("submit", function (e) {
+      var b = this.querySelector("button[type=submit]");
+      if (b.disabled) { e.preventDefault(); return; }
+      setTimeout(function () { b.disabled = true; b.textContent = "Wgrywam... nie zamykaj strony"; }, 0);
+    });
+  </script>
+</div>
+
+<div class="krok">
+  <h3>Krok 4 &middot; Kontrola po wgraniu</h3>
+  {% if po %}
+    <div class="werdykt w-{{ po.werdykt }}">Werdykt: {{ po.werdykt }}</div>
+    <p>sprawdzonych {{ po.sprawdzonych }} &middot; z gietarka w marszrucie {{ po.z_gieciem }}</p>
+  {% else %}
+    <p>Odczyt z bazy: czy elementy sa, z jakim materialem i gruboscia, jaka dostaly
+       marszrute i czy ilosci w zamowieniu sie zgadzaja.</p>
+  {% endif %}
+  <form method="post" class="rzad">
+    <button name="akcja" value="po" {% if not wg %}disabled{% endif %}>Sprawdz w bazie</button>
+  </form>
+</div>
+
+{% if pliki %}
+  <h2>Pliki przebiegu</h2>
+  <table>
+    <tr><th>plik</th><th>pobierz</th></tr>
+    {% for p in pliki %}
+      <tr><td>{{ p }}</td>
+          <td><a href="{{ url_for('dxf.pobierz', plik=p) }}">pobierz</a></td></tr>
+    {% endfor %}
+  </table>
+{% endif %}
+
+<div class="rzad">
+  <a href="{{ url_for('dxf.start') }}"><button type="button">Wroc do ustawien</button></a>
+</div>
+{% endblock %}
