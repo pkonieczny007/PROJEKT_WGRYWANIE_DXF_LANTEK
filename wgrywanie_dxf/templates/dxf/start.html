@@ -398,26 +398,59 @@
       naj.concat(reszta).forEach(function (h, i) {
         var b = document.createElement("button");
         b.type = "button"; b.className = "podp" + (i < naj.length ? " rob" : "");
-        b.dataset.wartosc = h; b.textContent = h; box.appendChild(b);
+        b.dataset.wartosc = h; b.dataset.norm = norm(h); b.textContent = h; box.appendChild(b);
       });
+      var brak = document.createElement("span");
+      brak.className = "mini brak-kol"; brak.hidden = true; box.appendChild(brak);
       zaznacz();
     });
+  }
+  // filtr listy po wpisanym fragmencie: 'Naz' -> Nazwa, NazwaSkr, ... (bez wielkosci
+  // liter i polskich znakow); puste pole albo przycisk = cala lista
+  function filtrujListe(id, tekst) {
+    var box = $("lista-" + id), t = norm(tekst), ile = 0;
+    box.querySelectorAll("button.podp").forEach(function (b) {
+      var widac = !t || b.dataset.norm.indexOf(t) >= 0;
+      b.hidden = !widac;
+      if (widac) ile++;
+    });
+    var brak = box.querySelector(".brak-kol");
+    if (brak) {
+      brak.hidden = ile > 0;
+      brak.textContent = "brak kolumny zawierajacej '" + tekst + "' - zostanie wybor automatyczny";
+    }
+  }
+  function zwinListy(oprocz) {
+    document.querySelectorAll(".lista-kol").forEach(function (l) { if (l !== oprocz) l.hidden = true; });
   }
   document.addEventListener("click", function (e) {
     var r = e.target.closest("button.rozwin");
     if (r) {
       var box = $("lista-" + r.dataset.cel);
-      if (!box.children.length) {
-        box.innerHTML = '<span class="mini">' + (KOL ? "brak kolumn" : "najpierw wskaz wykaz") + "</span>";
+      if (!KOL) {
+        box.innerHTML = '<span class="mini">najpierw wskaz wykaz</span>';
+      } else {
+        filtrujListe(r.dataset.cel, "");                 // przycisk = wszystkie kolumny
       }
+      zwinListy(box);
       box.hidden = !box.hidden;
       return;
     }
     var b = e.target.closest(".lista-kol button.podp");
-    if (b) b.closest(".lista-kol").hidden = true;      // wpisane - lista sie zwija
+    if (b) { b.closest(".lista-kol").hidden = true; return; }   // wpisane - lista sie zwija
+    if (!e.target.closest(".z-rozwin, .lista-kol")) zwinListy();  // klik obok - zwin
   });
   ["kolumna_nazwy", "kolumna_ilosci"].forEach(function (id) {
-    $(id).addEventListener("input", zaznacz);
+    $(id).addEventListener("input", function (e) {
+      zaznacz();
+      if (!e.isTrusted || !KOL) return;                  // wpisane z listy - nie otwieraj
+      filtrujListe(id, $(id).value.trim());
+      zwinListy($("lista-" + id));
+      $("lista-" + id).hidden = false;
+    });
+    $(id).addEventListener("keydown", function (e) {
+      if (e.key === "Escape") $("lista-" + id).hidden = true;
+    });
   });
 
   plus.addEventListener("click", function () { if (KOL) dodajWarunek(); });
